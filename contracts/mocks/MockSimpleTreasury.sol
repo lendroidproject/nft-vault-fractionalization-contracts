@@ -4,12 +4,16 @@ pragma solidity 0.7.5;
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 
-/** @title SimpleWallet
+/** @title MockSimpleTreasury
     @author Lendroid Foundation
-    @notice Smart contract that stores ether
+    @notice Smart contract that stores treasury ether and tokens
     @dev Audit certificate : Pending
 */
-contract SimpleWallet is Ownable {
+contract MockSimpleTreasury is Ownable {
+
+    event ValueReceived(uint256 amount);
+
+    // TODO : functions for ERC20, ERC721, and ERC1155 tokens
     /**
     * @dev Transfers all Ether held by the contract to the address specified by owner.
     */
@@ -17,4 +21,9 @@ contract SimpleWallet is Ownable {
         beneficiary.transfer(address(this).balance);
     }
 
+    /* solhint-disable */
+    receive() external payable {
+        emit ValueReceived(msg.value);
+    }
+    /* solhint-enable */
 }

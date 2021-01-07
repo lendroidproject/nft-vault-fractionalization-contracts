@@ -14,8 +14,7 @@
     "@codechecks/client": "0.1.10"
   },
   "devDependencies": {
-    "@chainlink/contracts": "0.0.11",
-    "@openzeppelin/test-helpers": "0.5.6",
+    "@openzeppelin/test-helpers": "^0.5.10",
     "dotenv": "8.2.0",
     "eslint": "7.14.0",
     "eth-gas-reporter": "0.2.19",
@@ -26,14 +25,14 @@
     "solc": "0.7.5",
     "solhint": "3.3.2",
     "solidity-coverage": "^0.7.13",
-    "truffle": "5.1.47",
+    "truffle": "5.1.59",
     "truffle-flattener": "1.5.0"
   },
   "scripts": {
     "build": "run-s build:*",
     "build:contracts": "rm -f build/contracts/*;./node_modules/truffle/build/cli.bundled.js compile",
     "test": "run-s lint:js lint:sol build:* test:*",
-    "test:contracts": "./node_modules/truffle/build/cli.bundled.js test/contracts.test.js && cat build/eth-gas-report.txt | tee build/contracts-eth-gas-report.txt",
+    "test:contracts": "./node_modules/truffle/build/cli.bundled.js test test/contracts.test.js && cat build/eth-gas-report.txt | tee build/contracts-eth-gas-report.txt",
     "test-coverage": "./node_modules/truffle/build/cli.bundled.js run coverage",
     "lint": "run-s lint:*",
     "lint:js": "./node_modules/eslint/bin/eslint.js . --max-warnings=0 --report-unused-disable-directives && echo '✔  Your .js files look good.'",
