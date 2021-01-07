@@ -4,7 +4,7 @@ const { constants, expectRevert } = require("@openzeppelin/test-helpers");
 
 const { expect } = require("chai");
 
-const Diamond = artifacts.require("FestivalDiamond");
+const Diamond = artifacts.require("AppDiamond");
 const DiamondCutFacet = artifacts.require("DiamondCutFacet");
 const DiamondLoupeFacet = artifacts.require("DiamondLoupeFacet");
 const OwnershipFacet = artifacts.require("OwnershipFacet");
@@ -184,7 +184,7 @@ contract("Vault", (accounts) => {
                         CATEGORY_2, CATEGORY_2,
                     ]
                 ).send({ from: tester1, gas: 2000000 }),
-                "LibAppStorage: 403",
+                "{AppStorage} : 403",
             );
         });
     });
@@ -342,7 +342,7 @@ contract("Vault", (accounts) => {
                         tester2, tester2, tester2
                     ]
                 ).send({ from: owner, gas: 2000000 }),
-                "404 : asset does not exist",
+                "{safeTransferAsset} : 404, asset does not exist",
             );
         });
 
@@ -358,7 +358,7 @@ contract("Vault", (accounts) => {
                         tester2, tester2, tester2
                     ]
                 ).send({ from: tester1, gas: 2000000 }),
-                "LibAppStorage: 403",
+                "{AppStorage} : 403",
             );
             await expectRevert(
                 this.vaultFacet.methods.safeTransferAsset(
@@ -371,7 +371,7 @@ contract("Vault", (accounts) => {
                         tester2, tester2, tester2
                     ]
                 ).send({ from: tester2, gas: 2000000 }),
-                "LibAppStorage: 403",
+                "{AppStorage} : 403",
             );
         });
 
@@ -385,7 +385,7 @@ contract("Vault", (accounts) => {
                         tester1
                     ]
                 ).send({ from: owner, gas: 2000000 }),
-                "400 : Invalid assetId",
+                "{safeTransferAsset} : 400, Invalid assetId",
             );
         });
 
@@ -411,7 +411,7 @@ contract("Vault", (accounts) => {
                         tester1
                     ]
                 ).send({ from: owner, gas: 2000000 }),
-                "404 : asset does not exist",
+                "{safeTransferAsset} : 404, asset does not exist",
             );
         });
     });

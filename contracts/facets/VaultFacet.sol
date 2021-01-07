@@ -31,12 +31,14 @@ contract VaultFacet is LibAppStorageModifiers, IVault, ERC721Holder {
     function safeAddAsset(address[] calldata tokenAddresses, uint256[] calldata tokenIds,
             string[] calldata categories) external override onlyOwner {
         require(app.mode == AppMode.BOOTSTRAPPED, "{safeAddAsset} : app mode is not BOOTSTRAPPED");
-        require(tokenAddresses.length > 0, "tokenAddresses cannot be empty");
-        require(tokenAddresses.length == tokenIds.length, "tokenAddresses and tokenIds lengths are not equal");
-        require(tokenAddresses.length == categories.length, "tokenAddresses and categories lengths are not equal");
+        require(tokenAddresses.length > 0, "{safeAddAsset} : tokenAddresses cannot be empty");
+        require(tokenAddresses.length == tokenIds.length,
+            "{safeAddAsset} : tokenAddresses and tokenIds lengths are not equal");
+        require(tokenAddresses.length == categories.length,
+            "{safeAddAsset} : tokenAddresses and categories lengths are not equal");
         // validate inputs
         for (uint i = 0; i < tokenAddresses.length; i++) {
-            require(tokenAddresses[i].isContract(), "invalid tokenAddress");
+            require(tokenAddresses[i].isContract(), "{safeAddAsset} : invalid tokenAddress");
         }
         for (uint i = 0; i < tokenAddresses.length; i++) {
             app.totalAssets = app.totalAssets.add(1);
@@ -56,20 +58,17 @@ contract VaultFacet is LibAppStorageModifiers, IVault, ERC721Holder {
     * Eg, [3, 200, 54], [0xab43..., 0xdC31..., 0xA54b...]
     */
     function safeTransferAsset(uint256[] calldata assetIds,
-            address[] calldata newOwnerAddresses) external override {
-        require(
-            (app.mode == AppMode.BOOTSTRAPPED && isCallerOwner()) ||
-            (app.mode == AppMode.BUYOUT_ENABLED && app.buyoutStatus == BuyoutStatus.ENDED),
-            "{safeTransferAsset} : app mode is not BOOTSTRAPPED or BUYOUT_ENABLED_ENDED"
-        );
-        require(assetIds.length > 0, "assetIds cannot be empty");
+            address[] calldata newOwnerAddresses) external override onlyOwner {
+        require(app.mode == AppMode.BOOTSTRAPPED, "{safeTransferAsset} : app mode is not BOOTSTRAPPED");
+        require(assetIds.length > 0, "{safeTransferAsset} : assetIds cannot be empty");
         require(assetIds.length == newOwnerAddresses.length,
-            "assetIds and newOwnerAddresses lengths are not equal");
+            "{safeTransferAsset} : assetIds and newOwnerAddresses lengths are not equal");
         // validate inputs
         for (uint i = 0; i < assetIds.length; i++) {
-            require(newOwnerAddresses[i] != address(0), "invalid newOwnerAddress");
-            require(app.assets.length > assetIds[i], "400 : Invalid assetId");
-            require(app.assets[assetIds[i]].tokenAddress != address(0), "404 : asset does not exist");
+            require(newOwnerAddresses[i] != address(0), "{safeTransferAsset} : invalid newOwnerAddress");
+            require(app.assets.length > assetIds[i], "{safeTransferAsset} : 400, Invalid assetId");
+            require(app.assets[assetIds[i]].tokenAddress != address(0),
+                "{safeTransferAsset} : 404, asset does not exist");
         }
         for (uint i = 0; i < assetIds.length; i++) {
             app.totalAssets = app.totalAssets.sub(1);

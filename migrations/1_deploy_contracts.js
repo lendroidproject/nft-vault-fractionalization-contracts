@@ -1,15 +1,21 @@
 /* eslint-disable prefer-const */
-const Diamond = artifacts.require("FestivalDiamond");
+const Diamond = artifacts.require("AppDiamond");
 const DiamondCutFacet = artifacts.require("DiamondCutFacet");
 const DiamondLoupeFacet = artifacts.require("DiamondLoupeFacet");
 const OwnershipFacet = artifacts.require("OwnershipFacet");
 
 const VaultFacet = artifacts.require("VaultFacet");
 
-const FestivalFacet = artifacts.require("FestivalFacet");
-const FestivalToken = artifacts.require("MockFestivalToken");
+const Token0 = artifacts.require("MockToken0");
+const Token0AdminFacet = artifacts.require("Token0AdminFacet");
+
 const SimpleWallet = artifacts.require("MockSimpleWallet");
 const SimpleTreasury = artifacts.require("MockSimpleTreasury");
+const MarketFacet = artifacts.require("MarketFacet");
+
+const BuyoutFacet = artifacts.require("BuyoutFacet");
+
+const RedeemFacet = artifacts.require("RedeemFacet");
 
 const FacetCutAction = {
     Add: 0,
@@ -31,9 +37,12 @@ function getSelectors (contract) {
 
 module.exports = function (deployer, network, accounts) {
     deployer.deploy(VaultFacet);
+    deployer.deploy(Token0AdminFacet);
+    deployer.deploy(MarketFacet);
+    deployer.deploy(BuyoutFacet);
+    deployer.deploy(RedeemFacet);
 
-    deployer.deploy(FestivalFacet);
-    deployer.deploy(FestivalToken);
+    deployer.deploy(Token0);
     deployer.deploy(SimpleWallet);
     deployer.deploy(SimpleTreasury);
 
@@ -44,8 +53,11 @@ module.exports = function (deployer, network, accounts) {
             [DiamondCutFacet.address, FacetCutAction.Add, getSelectors(DiamondCutFacet)],
             [DiamondLoupeFacet.address, FacetCutAction.Add, getSelectors(DiamondLoupeFacet)],
             [OwnershipFacet.address, FacetCutAction.Add, getSelectors(OwnershipFacet)],
-            [FestivalFacet.address, FacetCutAction.Add, getSelectors(FestivalFacet)],
-            [VaultFacet.address, FacetCutAction.Add, getSelectors(VaultFacet)]
+            [VaultFacet.address, FacetCutAction.Add, getSelectors(VaultFacet)],
+            [Token0AdminFacet.address, FacetCutAction.Add, getSelectors(Token0AdminFacet)],
+            [MarketFacet.address, FacetCutAction.Add, getSelectors(MarketFacet)],
+            [BuyoutFacet.address, FacetCutAction.Add, getSelectors(BuyoutFacet)],
+            [RedeemFacet.address, FacetCutAction.Add, getSelectors(RedeemFacet)]
         ];
         return deployer.deploy(Diamond, diamondCut, [accounts[0], SimpleTreasury.address]);
     });

@@ -97,11 +97,11 @@ contract LibAppStorageModifiers {
     AppStorage internal app;
 
     modifier onlyOwner {
-        require(msg.sender == LibDiamond.contractOwner() || msg.sender == address(this), "LibAppStorage: 403");
+        require(msg.sender == LibDiamond.contractOwner() || msg.sender == address(this), "{AppStorage} : 403");
         _;
     }
 
     function isCallerOwner() internal view returns (bool) {
-        return msg.sender == LibDiamond.contractOwner() || msg.sender == address(this);
+        return (msg.sender == LibDiamond.contractOwner()) || (msg.sender == address(this));
     }
 }

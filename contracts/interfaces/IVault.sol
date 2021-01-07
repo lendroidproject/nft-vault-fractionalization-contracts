@@ -21,6 +21,5 @@ interface IVault {
         address tokenAddress, uint256 tokenId);
 
     function totalAssets() external view returns (uint256);
-
     function totalAssetSlots() external view returns (uint256);
 }

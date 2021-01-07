@@ -5,6 +5,7 @@ pragma abicoder v2;
 import "../libraries/LibAppStorage.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "../interfaces/IRedeem.sol";
 
 
@@ -43,6 +44,25 @@ contract RedeemFacet is LibAppStorageModifiers, IRedeem {
         app.token0.burnFrom(msg.sender, token0Amount);
         // send token2Amount
         app.token2.safeTransfer(msg.sender, token2Amount);
+    }
+
+    function unlockVault(uint256[] calldata assetIds) external override {
+        require(app.mode == AppMode.REDEEM_ENABLED, "{redeem} : app mode is not REDEEM_ENABLED");
+        require(assetIds.length > 0, "{safeTransferAsset} : assetIds cannot be empty");
+        // validate inputs
+        for (uint i = 0; i < assetIds.length; i++) {
+            require(app.assets.length > assetIds[i], "{safeTransferAsset} : 400, Invalid assetId");
+            require(app.assets[assetIds[i]].tokenAddress != address(0),
+                "{safeTransferAsset} : 404, asset does not exist");
+        }
+        for (uint i = 0; i < assetIds.length; i++) {
+            app.totalAssets = app.totalAssets.sub(1);
+            // transfer asset to new owner
+            IERC721(app.assets[assetIds[i]].tokenAddress).safeTransferFrom(address(this),
+                app.highestBidder, app.assets[assetIds[i]].tokenId);
+            // remove asset but preserve array length
+            delete app.assets[assetIds[i]];
+        }
     }
 
     function redeemToken2Amount() external view override returns (uint256) {
