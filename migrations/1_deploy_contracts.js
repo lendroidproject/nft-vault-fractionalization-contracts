@@ -8,6 +8,8 @@ const VaultFacet = artifacts.require("VaultFacet");
 
 const Token0 = artifacts.require("MockToken0");
 const Token0AdminFacet = artifacts.require("Token0AdminFacet");
+const Token1 = artifacts.require("MockToken1");
+const Token2 = artifacts.require("MockToken2");
 
 const SimpleWallet = artifacts.require("MockSimpleWallet");
 const SimpleTreasury = artifacts.require("MockSimpleTreasury");
@@ -43,6 +45,8 @@ module.exports = function (deployer, network, accounts) {
     deployer.deploy(RedeemFacet);
 
     deployer.deploy(Token0);
+    deployer.deploy(Token1);
+    deployer.deploy(Token2);
     deployer.deploy(SimpleWallet);
     deployer.deploy(SimpleTreasury);
 

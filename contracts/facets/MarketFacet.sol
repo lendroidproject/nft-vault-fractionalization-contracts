@@ -20,7 +20,7 @@ contract MarketFacet is LibAppStorageModifiers, IMarket {
     using SafeERC20 for IToken0;
     using Address for address;
 
-    event PaymentReceived(address contributor, uint256 amount);
+    event PaymentReceived(address buyer, uint256 amount);
 
     event Token0Withdrawn(address beneficiary, uint256 amount);
 
@@ -28,7 +28,8 @@ contract MarketFacet is LibAppStorageModifiers, IMarket {
 
     modifier whileIsActive() {
         // solhint-disable-next-line not-rely-on-time
-        require(block.timestamp >= app.marketStart && block.timestamp <= app.marketEnd, "Event is not active");
+        require(block.timestamp >= app.marketStart && block.timestamp <= app.marketEnd,
+            "{MarketFacet} : market is not active");
         _;
     }
 
@@ -95,9 +96,9 @@ contract MarketFacet is LibAppStorageModifiers, IMarket {
         // ensure event has ended
         // solhint-disable-next-line not-rely-on-time
         require(block.timestamp > app.marketEnd, "Cannot enable issuance while event is still active");
-        // ensure smart contract has sufficient token0 tokens to issue
-        require(app.token0.balanceOf(address(this)) >= app.token0PerToken1.mul(app.totaltoken1Paid),
-            "Insufficient token0 balance");
+        uint256 token0Amount = app.token0PerToken1.mul(app.totaltoken1Paid);
+        // transfer token0Amount
+        app.token0.safeTransferFrom(msg.sender, address(this), token0Amount);
         // enable token0Issuance
         app.marketStatus = MarketStatus.CLOSED;
     }
@@ -108,7 +109,7 @@ contract MarketFacet is LibAppStorageModifiers, IMarket {
         require(app.marketStatus == MarketStatus.CLOSED, "{withdrawToken1} : marketStatus is not CLOSED");
         require(!app.token1Withdrawn, "{withdrawToken1} : already withdrawn");
         app.token1Withdrawn = true;
-        app.token1.safeTransfer(msg.sender, app.totaltoken1Paid);
+        app.token1.safeTransfer(address(app.fundsWallet), app.totaltoken1Paid);
         // emit notification
         emit Token1Withdrawn(msg.sender, app.totaltoken1Paid);
     }
@@ -131,6 +132,7 @@ contract MarketFacet is LibAppStorageModifiers, IMarket {
         app.payments[msg.sender].token1Amount = app.payments[msg.sender].token1Amount.add(token1Amount);
         app.totaltoken1Paid = app.totaltoken1Paid.add(token1Amount);
         app.token1.safeTransferFrom(msg.sender, address(this), token1Amount);
+        app.token1.transfer(address(app.fundsWallet), token1Amount);
         // emit notification
         emit PaymentReceived(msg.sender, token1Amount);
     }
@@ -139,11 +141,12 @@ contract MarketFacet is LibAppStorageModifiers, IMarket {
     * @notice Issues token0 to the contributor
     */
     function withdrawToken0() external override {
-        require(app.mode == AppMode.MARKET_CREATED, "{withdrawToken0} : app mode is not MARKET_CREATED");
+        require(app.mode == AppMode.MARKET_CREATED &&
+                app.marketStatus == MarketStatus.CLOSED,
+                "{withdrawToken0} : app mode is not MARKET_CREATED__CLOSED");
         // payments should be locked
-        require(app.marketStatus == MarketStatus.CLOSED, "Payments can no longer be made");
-        require(app.payments[msg.sender].token1Amount > 0, "Payment amount is zero");
-        require(!app.payments[msg.sender].token0Withdrawn, "Contributor has withdrawn token0s");
+        require(app.payments[msg.sender].token1Amount > 0, "{withdrawToken0} : payment amount is zero");
+        require(!app.payments[msg.sender].token0Withdrawn, "{withdrawToken0} : withdrawal already made");
         app.payments[msg.sender].token0Withdrawn = true;
         uint256 token0Amount = app.token0PerToken1.mul(app.payments[msg.sender].token1Amount);
         app.token0.safeTransfer(msg.sender, token0Amount);

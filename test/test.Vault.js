@@ -416,4 +416,140 @@ contract("Vault", (accounts) => {
         });
     });
 
+    describe("lockVault", () => {
+
+        beforeEach(async () => {
+            snapshotId = (await timeMachine.takeSnapshot())["result"];
+        });
+
+        afterEach(async() => {
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+
+        it("works when called by owner", async () => {
+            await this.vaultFacet.methods.lockVault().send({ from: owner, gas: 50000 });
+        });
+
+        it("fails when called more than once", async () => {
+            await this.vaultFacet.methods.lockVault().send({ from: owner, gas: 50000 });
+            await expectRevert(
+                this.vaultFacet.methods.lockVault().send({ from: owner, gas: 50000 }),
+                "{lockVault} : app mode is not BOOTSTRAPPED",
+            );
+        });
+
+        it("fails when called by non-owner", async () => {
+            await expectRevert(
+                this.vaultFacet.methods.lockVault().send({ from: tester1, gas: 50000 }),
+                "{AppStorage} : 403",
+            );
+        });
+
+        it("prevents addition of assets into vault", async () => {
+            // mint 4 TNFT1s to owner
+            for (i = 0; i < 4; i++) {
+                await this.nft1.mintTo(tester1);
+            }
+            // mint 3 TNFT2s to owner
+            for (i = 0; i < 3; i++) {
+                await this.nft2.mintTo(tester2);
+            }
+            await this.nft1.transferFrom(tester1, owner, 1, {from: tester1});
+            await this.nft1.transferFrom(tester1, owner, 2, {from: tester1});
+            await this.nft1.transferFrom(tester1, owner, 3, {from: tester1});
+            await this.nft1.transferFrom(tester1, owner, 4, {from: tester1});
+            await this.nft2.transferFrom(tester2, owner, 1, {from: tester2});
+            await this.nft2.transferFrom(tester2, owner, 2, {from: tester2});
+            await this.nft2.transferFrom(tester2, owner, 3, {from: tester2});
+            await this.nft1.approve(this.diamond.address, 1, {from: owner});
+            await this.nft1.approve(this.diamond.address, 2, {from: owner});
+            await this.nft1.approve(this.diamond.address, 3, {from: owner});
+            await this.nft1.approve(this.diamond.address, 4, {from: owner});
+            await this.nft2.approve(this.diamond.address, 1, {from: owner});
+            await this.nft2.approve(this.diamond.address, 2, {from: owner});
+            await this.nft2.approve(this.diamond.address, 3, {from: owner});
+            await this.vaultFacet.methods.safeAddAsset(
+                [
+                    this.nft1.address, this.nft1.address, this.nft1.address,
+                    this.nft2.address, this.nft2.address
+                ],
+                [
+                    1,2,3,
+                    1,2
+                ],
+                [
+                    CATEGORY_1, CATEGORY_1, CATEGORY_1,
+                    CATEGORY_2, CATEGORY_2
+                ]
+            ).send({ from: owner, gas: 2000000 });
+            await this.vaultFacet.methods.lockVault().send({ from: owner, gas: 50000 });
+            await expectRevert(
+                this.vaultFacet.methods.safeAddAsset(
+                    [
+                        this.nft1.address, this.nft2.address
+                    ],
+                    [
+                        4,3
+                    ],
+                    [
+                        CATEGORY_1, CATEGORY_2
+                    ]
+                ).send({ from: owner, gas: 2000000 }),
+                "{safeAddAsset} : app mode is not BOOTSTRAPPED",
+            );
+        });
+
+        it("prevents transfer of assets from vault", async () => {
+            // mint 4 TNFT1s to owner
+            for (i = 0; i < 4; i++) {
+                await this.nft1.mintTo(tester1);
+            }
+            // mint 3 TNFT2s to owner
+            for (i = 0; i < 3; i++) {
+                await this.nft2.mintTo(tester2);
+            }
+            await this.nft1.transferFrom(tester1, owner, 1, {from: tester1});
+            await this.nft1.transferFrom(tester1, owner, 2, {from: tester1});
+            await this.nft1.transferFrom(tester1, owner, 3, {from: tester1});
+            await this.nft1.transferFrom(tester1, owner, 4, {from: tester1});
+            await this.nft2.transferFrom(tester2, owner, 1, {from: tester2});
+            await this.nft2.transferFrom(tester2, owner, 2, {from: tester2});
+            await this.nft2.transferFrom(tester2, owner, 3, {from: tester2});
+            await this.nft1.approve(this.diamond.address, 1, {from: owner});
+            await this.nft1.approve(this.diamond.address, 2, {from: owner});
+            await this.nft1.approve(this.diamond.address, 3, {from: owner});
+            await this.nft1.approve(this.diamond.address, 4, {from: owner});
+            await this.nft2.approve(this.diamond.address, 1, {from: owner});
+            await this.nft2.approve(this.diamond.address, 2, {from: owner});
+            await this.nft2.approve(this.diamond.address, 3, {from: owner});
+            await this.vaultFacet.methods.safeAddAsset(
+                [
+                    this.nft1.address, this.nft1.address, this.nft1.address, this.nft1.address,
+                    this.nft2.address, this.nft2.address, this.nft2.address
+                ],
+                [
+                    1,2,3,4,
+                    1,2,3
+                ],
+                [
+                    CATEGORY_1, CATEGORY_1, CATEGORY_1, CATEGORY_1,
+                    CATEGORY_2, CATEGORY_2, CATEGORY_2
+                ]
+            ).send({ from: owner, gas: 2000000 });
+            await this.vaultFacet.methods.lockVault().send({ from: owner, gas: 50000 });
+            await expectRevert(
+                this.vaultFacet.methods.safeTransferAsset(
+                    [
+                        3
+                    ],
+                    [
+                        tester1
+                    ]
+                ).send({ from: owner, gas: 2000000 }),
+                "{safeTransferAsset} : app mode is not BOOTSTRAPPED",
+            );
+        });
+
+    });
+
 });

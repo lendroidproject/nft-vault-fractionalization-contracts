@@ -1,2 +1,2 @@
 require("./test.Vault.js");
-// require("./test.Market.js");
+require("./test.Market.js");
