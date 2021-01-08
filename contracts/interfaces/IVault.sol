@@ -17,9 +17,5 @@ interface IVault {
             address[] calldata ownerAddresses) external;
 
     // getters
-    function assets(uint256 arrayIndex) external view returns (string memory category,
-        address tokenAddress, uint256 tokenId);
-
-    function totalAssets() external view returns (uint256);
     function totalAssetSlots() external view returns (uint256);
 }
