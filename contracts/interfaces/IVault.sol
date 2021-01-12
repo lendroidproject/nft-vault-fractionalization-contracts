@@ -9,6 +9,7 @@ pragma abicoder v2;
 interface IVault {
     // admin
     function lockVault() external;
+    function unlockVault() external;
 
     function safeAddAsset(address[] calldata tokenAddresses, uint256[] calldata tokenIds,
         string[] calldata categories) external;

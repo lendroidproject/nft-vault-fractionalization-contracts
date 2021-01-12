@@ -72,7 +72,7 @@ contract Buyout is IBuyout, Ownable {
             (buyoutStatus == BuyoutStatus.ACTIVE) &&
             (block.timestamp >= buyoutStart) &&// solhint-disable-line not-rely-on-time
             (block.timestamp <= buyoutEnd())// solhint-disable-line not-rely-on-time
-        ), "Buyout is not active");
+        ), "{Buyout} : Buyout is not active");
         _;
     }
 
@@ -101,14 +101,14 @@ contract Buyout is IBuyout, Ownable {
     function endBuyout() external override {
         require(mode == AppMode.BUYOUT_ENABLED, "{endBuyout} : app mode is not BUYOUT_ENABLED");
         // solhint-disable-next-line not-rely-on-time
-        require(block.timestamp >= buyoutEnd(), "Buyout has not yet ended");
-        require(buyoutStatus != BuyoutStatus.ENDED, "Buyout has already ended");
-        require(highestBidder != address(0), "Buyout does not have highestBidder");
+        require(block.timestamp >= buyoutEnd(), "{endBuyout} : buyout has not yet ended");
+        require(buyoutStatus != BuyoutStatus.ENDED, "{endBuyout} : buyout has already ended");
+        require(highestBidder != address(0), "{endBuyout} : buyout does not have highestBidder");
         // additional safety checks
         require((
             (bidDeposits[highestBidder].token0Amount > 0) ||
             (bidDeposits[highestBidder].token2Amount > 0)
-        ), "highestBidder deposits cannot be 0");
+        ), "{endBuyout} : highestBidder deposits cannot be 0");
         // set status
         buyoutStatus = BuyoutStatus.ENDED;
         // burn token0Amount
@@ -122,15 +122,15 @@ contract Buyout is IBuyout, Ownable {
     function placeBid(uint256 totalBidAmount, uint256 token2Amount) external override {
         require(mode == AppMode.BUYOUT_ENABLED, "{placeBid} : app mode is not BUYOUT_ENABLED");
         // verify buyout has not ended
-        require(buyoutStatus != BuyoutStatus.ENDED, "Buyout has ended");
+        require(buyoutStatus != BuyoutStatus.ENDED, "{placeBid} : buyout has ended");
         // activate buyout process if applicable
         if ((buyoutStatus == BuyoutStatus.CONFIGURED) || (buyoutStatus == BuyoutStatus.REVOKED)) {
             _startBuyout();
         }
         // solhint-disable-next-line not-rely-on-time
-        require(block.timestamp <= buyoutEnd(), "Buyout has ended");
-        require(totalBidAmount > buyoutThreshold, "totalBidAmount does not meet minimum threshold");
-        require(totalBidAmount > highestBid, "There already is a higher bid");
+        require(block.timestamp <= buyoutEnd(), "{placeBid} : buyout has ended");
+        require(totalBidAmount > buyoutThreshold, "{placeBid} : totalBidAmount does not meet minimum threshold");
+        require(totalBidAmount > highestBid, "{placeBid} : there already is a higher bid");
         require(token2.balanceOf(msg.sender) >= token2Amount);
         uint256 token0Amount = requiredToken0ToBid(token2Amount);
         require(token2.balanceOf(msg.sender) >= token2Amount);
@@ -154,12 +154,12 @@ contract Buyout is IBuyout, Ownable {
         require(mode == AppMode.BUYOUT_ENABLED, "{withdrawBid} : app mode is not BUYOUT_ENABLED");
         if (msg.sender == highestBidder) {
             require(((buyoutStatus == BuyoutStatus.CONFIGURED) || (buyoutStatus == BuyoutStatus.REVOKED)),
-                "highest bidder cannot withdraw bid");
+                "{withdrawBid} : highest bidder cannot withdraw bid");
         }
         // get sender balances of token0 and token2
         uint256 token0Amount = pendingBidWithdrawals[msg.sender].token0Amount;
         uint256 token2Amount = pendingBidWithdrawals[msg.sender].token2Amount;
-        require(((token0Amount > 0) || (token2Amount > 0)), "No pending withdrawals");
+        require(((token0Amount > 0) || (token2Amount > 0)), "{withdrawBid} : no pending withdrawals");
         if (token0Amount > 0) {
             pendingBidWithdrawals[msg.sender].token0Amount = 0;
             token0.safeTransfer(msg.sender, token0Amount);
@@ -188,7 +188,7 @@ contract Buyout is IBuyout, Ownable {
     function withdrawStakedToken0() external override {
         require(mode == AppMode.BUYOUT_ENABLED, "{withdrawStakedToken0} : app mode is not BUYOUT_ENABLED");
         uint256 token0Amount = buyoutStopStakes[msg.sender].token0Amount;
-        require(token0Amount > 0, "No staked amount");
+        require(token0Amount > 0, "{withdrawStakedToken0} : no staked token0Amount");
         buyoutStopStakes[msg.sender].token0Amount = 0;
         totalToken0Staked = totalToken0Staked.sub(token0Amount);
         token0.safeTransfer(msg.sender, token0Amount);
@@ -201,7 +201,7 @@ contract Buyout is IBuyout, Ownable {
     function requiredToken0ToBid(uint256 token2Amount) public view override returns (uint256) {
         uint256 token0Supply = token0.totalSupply();
         uint256 threshold = highestBid >= buyoutThreshold ? highestBid : buyoutThreshold;
-        require(token2Amount <= threshold, "token2Amount cannot exceed threshold");
+        require(token2Amount <= threshold, "{requiredToken0ToBid} : token2Amount cannot exceed threshold");
         // threshold * ( (totalSupply - userBalance) / totalSupply )
         return token0Supply
             .mul(
