@@ -1,17 +1,16 @@
 /* eslint-disable prefer-const */
-const Vault = artifacts.require("Vault");
+const Vault = artifacts.require("SimpleVault");
 
 const Token0 = artifacts.require("MockToken0");
 const Token1 = artifacts.require("MockToken1");
 const Token2 = artifacts.require("MockToken2");
 
 const SimpleWallet = artifacts.require("MockSimpleWallet");
-const SimpleTreasury = artifacts.require("MockSimpleTreasury");
-const Market = artifacts.require("Market");
+const Market = artifacts.require("SimpleMarket");
 
-const Buyout = artifacts.require("Buyout");
+const Buyout = artifacts.require("SimpleBuyout");
 
-const Redeem = artifacts.require("Redeem");
+const Redeem = artifacts.require("SimpleRedeem");
 
 module.exports = function (deployer) {
     deployer.deploy(Vault);
@@ -23,5 +22,4 @@ module.exports = function (deployer) {
     deployer.deploy(Token1);
     deployer.deploy(Token2);
     deployer.deploy(SimpleWallet);
-    deployer.deploy(SimpleTreasury);
 };

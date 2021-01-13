@@ -9,18 +9,18 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "./IToken0.sol";
 
 
-/** @title Market
+/** @title SimpleMarket
     @author Lendroid Foundation
     @notice Smart contract representing token0 market
     @dev Audit certificate : Pending
 */
-contract Market is Ownable {
+contract SimpleMarket is Ownable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
     using SafeERC20 for IToken0;
     using Address for address;
 
-    enum MarketStatus { OPEN, CLOSED }
+    enum MarketStatus { CREATED, OPEN, CLOSED }
 
     struct Payment {
         uint256 token1Amount;
@@ -50,6 +50,7 @@ contract Market is Ownable {
     function createMarket(address token0Address, address token1Address,
         address fundsWalletAddress,
         uint256[3] memory uint256Values) external onlyOwner {
+        require(marketStatus == MarketStatus.CREATED, "{createMarket} : market has already been created");
         // input validations
         require(token0Address.isContract(), "{createMarket} : token0Address is not contract");
         require(token1Address.isContract(), "{createMarket} : token1Address is not contract");
@@ -73,10 +74,12 @@ contract Market is Ownable {
     */
     function closeMarket() external onlyOwner {
         require(marketStatus == MarketStatus.OPEN, "{closeMarket} : marketStatus is not OPEN");
-        uint256 token0Amount = token1PerToken0.mul(totaltoken1Paid);
+        uint256 token0Amount = totaltoken1Paid.mul(1e18).div(token1PerToken0);
         // transfer token0Amount
-        token0.safeTransferFrom(msg.sender, address(this), token0Amount);
-        // enable token0Issuance
+        if (token0Amount > 0) {
+            token0.safeTransferFrom(msg.sender, address(this), token0Amount);
+        }
+        // close market
         marketStatus = MarketStatus.CLOSED;
     }
 
@@ -129,4 +132,5 @@ contract Market is Ownable {
     function totalBuyers() external view returns (uint256) {
         return buyers.length;
     }
+
 }

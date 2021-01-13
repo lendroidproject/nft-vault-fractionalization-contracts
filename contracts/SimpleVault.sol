@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
 
-/** @title Vault
+/** @title SimpleVault
     @author Lendroid Foundation
     @notice Smart contract representing a NFT Vault
     @dev Audit certificate : Pending
@@ -93,7 +93,7 @@ contract SimpleVault is Ownable, ERC721Holder {
     }
 
     function toggleLock(bool value) internal {
-        require(locked == !value, "{toggleLock} incorrect value");
+        require(locked == !value, "{toggleLock} : incorrect value");
         locked = value;
     }
 }

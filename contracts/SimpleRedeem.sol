@@ -10,12 +10,12 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "./IToken0.sol";
 
 
-/** @title Redeem
+/** @title SimpleRedeem
     @author Lendroid Foundation
     @notice Smart contract representing redemption of Token0 for Token2
     @dev Audit certificate : Pending
 */
-contract Redeem is Ownable {
+contract SimpleRedeem is Ownable {
     using SafeERC20 for IERC20;
     using SafeERC20 for IToken0;
     using SafeMath for uint256;

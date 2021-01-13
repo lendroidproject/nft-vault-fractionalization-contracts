@@ -10,12 +10,12 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "./IToken0.sol";
 
 
-/** @title Buyout
+/** @title SimpleBuyout
     @author Lendroid Foundation
     @notice Smart contract representing a NFT bundle buyout
     @dev Audit certificate : Pending
 */
-contract Buyout is Ownable {
+contract SimpleBuyout is Ownable {
     using SafeERC20 for IERC20;
     using SafeERC20 for IToken0;
     using SafeMath for uint256;
