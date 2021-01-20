@@ -106,6 +106,10 @@ contract("SimpleMarket", (accounts) => {
 
         beforeEach(async() => {
             snapshotId = (await timeMachine.takeSnapshot())["result"];
+            // owner mints 1.6M Token0 to owner
+            await this.token0.mint(owner, web3.utils.toWei("1600000", "ether"), { from: owner, gas: 1000000 });
+            // owner sends 1.6M Token0 to market
+            await this.token0.transfer(this.market.address, web3.utils.toWei("1600000", "ether"), { from: owner, gas: 1000000 });
         });
 
         afterEach(async() => {
@@ -116,21 +120,21 @@ contract("SimpleMarket", (accounts) => {
             expect(await this.market.totalBuyers()).to.be.bignumber.equal("0");
             expect(await this.market.totaltoken1Paid()).to.be.bignumber.equal("0");
             expect(await this.token0.balanceOf(this.fundsWallet.address)).to.be.bignumber.equal("0");
-            let token1Amount = web3.utils.toWei("1000", "ether");
+            let token1Amount = web3.utils.toWei("360", "ether");
             // owner mints 1000 Token1 to tester1
             await this.token1.mint(tester1, token1Amount, { from: owner, gas: 1000000 });
             expect(await this.token1.balanceOf(tester1)).to.be.bignumber.equal(token1Amount);
             // tester1 approves 1000 Token1 to app
             await this.token1.approve(this.market.address, token1Amount, { from: tester1, gas: 1000000 });
             // tester1 pays 1000 Token1
+            expect(await this.token0.balanceOf(tester1)).to.be.bignumber.equal("0");
             await this.market.pay(token1Amount, {from: tester1, gas: 2500000});
+            expect(await this.token0.balanceOf(tester1)).to.be.bignumber.equal(web3.utils.toWei("1000", "ether"));
             expect(await this.market.totalBuyers()).to.be.bignumber.equal("1");
             expect(await this.market.buyers(0)).to.be.equal(tester1);
             expect(await this.market.totaltoken1Paid()).to.be.bignumber.equal(token1Amount);
             expect(await this.token1.balanceOf(this.fundsWallet.address)).to.be.bignumber.equal(token1Amount);
-            let buyer = await this.market.payments(tester1);
-            expect(buyer.token1Amount).to.be.bignumber.equal(token1Amount);
-            expect(buyer.token0Withdrawn).to.be.equal(false);
+            expect(await this.market.payments(tester1)).to.be.bignumber.equal(token1Amount);
         });
 
         it("fails when contribution amount is 0", async () => {
@@ -155,12 +159,15 @@ contract("SimpleMarket", (accounts) => {
             // tester1 pays 150K Token1 to app
             await this.market.pay(web3.utils.toWei("150000", "ether"), {from: tester1, gas: 2500000});
             expect(await this.token1.balanceOf(this.fundsWallet.address)).to.be.bignumber.equal(web3.utils.toWei("150000", "ether"));
+            expect(await this.token0.balanceOf(tester1)).to.be.bignumber.equal("416666666666666666666666");
             // tester2 pays 150K Token1 to app
             await this.market.pay(web3.utils.toWei("150000", "ether"), {from: tester2, gas: 2500000});
             expect(await this.token1.balanceOf(this.fundsWallet.address)).to.be.bignumber.equal(web3.utils.toWei("300000", "ether"));
+            expect(await this.token0.balanceOf(tester2)).to.be.bignumber.equal("416666666666666666666666");
             // tester1 pays 150K Token1 to app
             await this.market.pay(web3.utils.toWei("150000", "ether"), {from: tester1, gas: 2500000});
             expect(await this.token1.balanceOf(this.fundsWallet.address)).to.be.bignumber.equal(web3.utils.toWei("450000", "ether"));
+            expect(await this.token0.balanceOf(tester1)).to.be.bignumber.equal("833333333333333333333332");
             // fails when tester2 tries to pay 150K Token1 to app
             await expectRevert(
                 this.market.pay(web3.utils.toWei("150000", "ether"), {from: tester2, gas: 2500000}),
@@ -173,6 +180,10 @@ contract("SimpleMarket", (accounts) => {
 
         beforeEach(async() => {
             snapshotId = (await timeMachine.takeSnapshot())["result"];
+            // owner mints 1.6M Token0 to owner
+            await this.token0.mint(owner, web3.utils.toWei("1600000", "ether"), { from: owner, gas: 1000000 });
+            // owner sends 1.6M Token0 to market
+            await this.token0.transfer(this.market.address, web3.utils.toWei("1600000", "ether"), { from: owner, gas: 1000000 });
         });
 
         afterEach(async() => {
@@ -197,26 +208,17 @@ contract("SimpleMarket", (accounts) => {
             await this.market.pay(web3.utils.toWei("150000", "ether"), {from: tester1, gas: 2500000});
             // tester2 pays 150K Token1 to app
             await this.market.pay(web3.utils.toWei("126000", "ether"), {from: tester2, gas: 2500000});
-            // owner mints 1.6M Token0 to owner
-            await this.token0.mint(owner, web3.utils.toWei("1600000", "ether"), { from: owner, gas: 1000000 });
-            // tester1 approves 1.5M Token0 to app
-            await this.token0.approve(this.market.address, web3.utils.toWei("1500000", "ether"), { from: owner, gas: 1000000 });
-            // owner tries to close the market without sufficient token0 approval
-            await expectRevert(
-                this.market.closeMarket({from: owner, gas: 100000}),
-                "ERC20: transfer amount exceeds allowance",
-            );
-            // tester1 approves 1.6M Token0 to app
-            await this.token0.approve(this.market.address, web3.utils.toWei("1600000", "ether"), { from: owner, gas: 1000000 });
+            expect(await this.market.marketOpen(), true);
+            expect(await this.market.marketClosed(), false);
             // owner successfully closes the market
             await this.market.closeMarket({from: owner, gas: 100000});
-            expect(await this.token0.balanceOf(this.market.address)).to.be.bignumber.equal(web3.utils.toWei("1600000", "ether"));
+            expect(await this.market.marketOpen(), false);
+            expect(await this.market.marketClosed(), true);
         });
 
         it("works even if totaltoken1Paid is 0", async () => {
             expect(await this.market.totaltoken1Paid()).to.be.bignumber.equal("0");
             await this.market.closeMarket({from: owner, gas: 100000});
-            expect(await this.token0.balanceOf(this.market.address)).to.be.bignumber.equal("0");
         });
 
         it("fails if called by non-owner", async () => {

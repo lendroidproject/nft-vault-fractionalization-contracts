@@ -22,11 +22,6 @@ contract SimpleMarket is Ownable {
 
     enum MarketStatus { CREATED, OPEN, CLOSED }
 
-    struct Payment {
-        uint256 token1Amount;
-        bool token0Withdrawn;
-    }
-
     MarketStatus public marketStatus;
     IToken0 public token0;
     // admin
@@ -39,7 +34,7 @@ contract SimpleMarket is Ownable {
     uint256 public token1PerToken0;// token0 distributed per token1 paid
     //// end user
     address[] public buyers;
-    mapping (address => Payment) public payments;
+    mapping (address => uint256) public payments;
 
     event PaymentReceived(address buyer, uint256 amount);
 
@@ -74,11 +69,6 @@ contract SimpleMarket is Ownable {
     */
     function closeMarket() external onlyOwner {
         require(marketStatus == MarketStatus.OPEN, "{closeMarket} : marketStatus is not OPEN");
-        uint256 token0Amount = totaltoken1Paid.mul(1e18).div(token1PerToken0);
-        // transfer token0Amount
-        if (token0Amount > 0) {
-            token0.safeTransferFrom(msg.sender, address(this), token0Amount);
-        }
         // close market
         marketStatus = MarketStatus.CLOSED;
     }
@@ -87,7 +77,7 @@ contract SimpleMarket is Ownable {
     * @notice Records payment per account.
     */
     function pay(uint256 token1Amount) external {
-        require(marketStatus == MarketStatus.OPEN, "{pay} : closeMarket is not OPEN");
+        require(marketStatus == MarketStatus.OPEN, "{pay} : marketStatus is not OPEN");
         // solhint-disable-next-line not-rely-on-time
         require(block.timestamp >= marketStart, "{pay} : market has not yet started");
         // validations
@@ -95,30 +85,18 @@ contract SimpleMarket is Ownable {
         require(token1Amount > 0, "{pay} : token1Amount cannot be zero");
         require(totaltoken1Paid.add(token1Amount) <= totalCap, "{pay} : token1Amount cannot exceed totalCap");
         // if we have not received any WEI from this address until now, then we add this address to buyers list.
-        if (payments[msg.sender].token1Amount == 0) {
+        if (payments[msg.sender] == 0) {
             buyers.push(msg.sender);
         }
-        payments[msg.sender].token1Amount = payments[msg.sender].token1Amount.add(token1Amount);
+        payments[msg.sender] = payments[msg.sender].add(token1Amount);
         totaltoken1Paid = totaltoken1Paid.add(token1Amount);
-        token1.safeTransferFrom(msg.sender, address(this), token1Amount);
-        token1.transfer(address(fundsWallet), token1Amount);
-        // emit notification
-        emit PaymentReceived(msg.sender, token1Amount);
-    }
-
-    /**
-    * @notice Issues token0 to the contributor
-    */
-    function withdrawToken0() external {
-        require(marketStatus == MarketStatus.CLOSED, "{withdrawToken0} : marketStatus is not CLOSED");
-        // payments should be locked
-        require(payments[msg.sender].token1Amount > 0, "{withdrawToken0} : payment amount is zero");
-        require(!payments[msg.sender].token0Withdrawn, "{withdrawToken0} : withdrawal already made");
-        payments[msg.sender].token0Withdrawn = true;
-        uint256 token0Amount = payments[msg.sender].token1Amount.mul(1e18).div(token1PerToken0);
+        // send token1 from sender to fundsWallet
+        token1.safeTransferFrom(msg.sender, address(fundsWallet), token1Amount);
+        // send token0 to sender
+        uint256 token0Amount = token1Amount.mul(1e18).div(token1PerToken0);
         token0.safeTransfer(msg.sender, token0Amount);
         // emit notification
-        emit Token0Withdrawn(msg.sender, token0Amount);
+        emit PaymentReceived(msg.sender, token1Amount);
     }
 
     function marketClosed() external view returns (bool) {

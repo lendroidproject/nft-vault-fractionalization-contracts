@@ -43,6 +43,7 @@ contract SimpleBuyout is Ownable {
     IERC20 public token2;
     uint256 public startThreshold;
     uint256 public duration;
+    uint256 public bidInterval;
     uint256 public startTimestamp;
     //// governance
     uint256 public stopThreshold;
@@ -61,19 +62,21 @@ contract SimpleBuyout is Ownable {
     event BuyoutEnded(address bidder, uint256 amount);
 
     function enableBuyout(address token0Address, address token2Address,
-        uint256[3] memory uint256Values) external onlyOwner {
+        uint256[4] memory uint256Values) external onlyOwner {
         // input validations
         require(token0Address.isContract(), "{enableBuyout} : invalid token0Address");
         require(token2Address.isContract(), "{enableBuyout} : invalid token2Address");
         require(uint256Values[0] > 0, "{enableBuyout} : startThreshold cannot be zero");
         require(uint256Values[1] > 0, "{enableBuyout} : duration cannot be zero");
-        require(uint256Values[2] > 0, "{enableBuyout} : stopThreshold cannot be zero");
+        // uint256Values[1], aka, bidInterval can be zero, so no checks required.
+        require(uint256Values[3] > 0, "{enableBuyout} : stopThreshold cannot be zero");
         // set values
         token0 = IToken0(token0Address);
         token2 = IERC20(token2Address);
         startThreshold = uint256Values[0];
         duration = uint256Values[1];
-        stopThreshold = uint256Values[2];
+        bidInterval = uint256Values[2];
+        stopThreshold = uint256Values[3];
         status == BuyoutStatus.ENABLED;
     }
 
@@ -92,6 +95,10 @@ contract SimpleBuyout is Ownable {
         // burn token0Amount
         if (bidDeposits[highestBidder].token0Amount > 0) {
             token0.burn(bidDeposits[highestBidder].token0Amount);
+        }
+        // send token2Amount to owner
+        if (bidDeposits[highestBidder].token2Amount > 0) {
+            token2.safeTransferFrom(address(this), owner(), bidDeposits[highestBidder].token2Amount);
         }
 
         emit BuyoutEnded(highestBidder, highestBid);
@@ -120,6 +127,8 @@ contract SimpleBuyout is Ownable {
         highestBid = totalBidAmount;
         bidDeposits[msg.sender].token0Amount = token0Amount;
         bidDeposits[msg.sender].token2Amount = token2Amount;
+        // set startTimestamp
+        startTimestamp = block.timestamp;// solhint-disable-line not-rely-on-time
         // transfer token0 and token2 to this contract
         token0.safeTransferFrom(msg.sender, address(this), token0Amount);
         token2.safeTransferFrom(msg.sender, address(this), token2Amount);
@@ -160,6 +169,8 @@ contract SimpleBuyout is Ownable {
             _setPendingBidWithdrawals(highestBidder);
             // set status
             status = BuyoutStatus.REVOKED;
+            // increase startThreshold by 8%
+            startThreshold = startThreshold.mul(108).div(100);
             emit BuyoutRevoked(updatedTotalToken0Staked);
         }
         stopStakes[msg.sender].token0Amount =
@@ -177,7 +188,15 @@ contract SimpleBuyout is Ownable {
     }
 
     function endTimestamp() public view returns (uint256) {
-        return startTimestamp.add(duration);
+        if (status == BuyoutStatus.ACTIVE) {
+            if (highestBidder != address(0)) {
+                return startTimestamp.add(duration);
+            } else {
+                return startTimestamp.add(bidInterval);
+            }
+        } else {
+            return 0;
+        }
     }
 
     function requiredToken0ToBid(uint256 token2Amount) public view returns (uint256) {
