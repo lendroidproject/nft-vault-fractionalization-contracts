@@ -30,17 +30,12 @@ contract SimpleMarket is Ownable {
     address public fundsWallet;// address where funds are collected
     uint256 public totalCap;// total payment cap
     uint256 public totaltoken1Paid;
-    bool public token1Withdrawn;
     uint256 public token1PerToken0;// token0 distributed per token1 paid
     //// end user
     address[] public buyers;
     mapping (address => uint256) public payments;
 
     event PaymentReceived(address buyer, uint256 amount);
-
-    event Token0Withdrawn(address beneficiary, uint256 amount);
-
-    event Token1Withdrawn(address beneficiary, uint256 amount);
 
     function createMarket(address token0Address, address token1Address,
         address fundsWalletAddress,
