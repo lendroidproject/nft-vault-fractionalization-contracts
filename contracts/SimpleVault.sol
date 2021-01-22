@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721Holder.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "./IDecentralandLandRegistry.sol";
 
 
 /** @title SimpleVault
@@ -86,6 +87,16 @@ contract SimpleVault is Ownable, ERC721Holder {
             // remove asset but preserve array length
             delete assets[assetIds[i]];
         }
+    }
+
+    // admin functions in case something goes wrong
+    function escapeHatchERC721(address tokenAddress, uint256 tokenId) external onlyOwner {
+        IERC721(tokenAddress).safeTransferFrom(address(this), owner(), tokenId);
+    }
+
+    function setDecentralandOperator(address registryAddress, address operatorAddress,
+        uint256 assetId) external onlyOwner {
+        IDecentralandLandRegistry(registryAddress).setUpdateOperator(assetId, operatorAddress);
     }
 
     function totalAssetSlots() external view returns (uint256) {
