@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721Holder.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./IDecentralandLandRegistry.sol";
+import "./IVault.sol";
 
 
 /** @title SimpleVault
@@ -15,7 +16,7 @@ import "./IDecentralandLandRegistry.sol";
     @notice Smart contract representing a NFT Vault
     @dev Audit certificate : Pending
 */
-contract SimpleVault is Ownable, ERC721Holder {
+contract SimpleVault is IVault, Ownable, ERC721Holder {
     using SafeMath for uint256;
     using Address for address;
 
@@ -28,12 +29,14 @@ contract SimpleVault is Ownable, ERC721Holder {
     bool public locked;
     Asset[] public assets;
     uint256 public totalAssets;
+    // return value for safeTransferFrom function calls of older ERC721 versions
+    bytes4 public constant ERC721_RECEIVED_OLD = 0xf0b9e5ba;
 
-    function lockVault() external onlyOwner {
+    function lockVault() external override onlyOwner {
         toggleLock(true);
     }
 
-    function unlockVault() external onlyOwner {
+    function unlockVault() external override onlyOwner {
         toggleLock(false);
     }
 
@@ -42,7 +45,7 @@ contract SimpleVault is Ownable, ERC721Holder {
     * Eg, [0x67678.., 0x2178..., 0x67678], [3, 1321, 33], ["kitty", "land", "kitty"]
     */
     function safeAddAsset(address[] calldata tokenAddresses, uint256[] calldata tokenIds,
-            string[] calldata categories) external onlyOwner {
+            string[] calldata categories) external override onlyOwner {
         require(!locked, "{safeAddAsset} : locked");
         require(tokenAddresses.length > 0, "{safeAddAsset} : tokenAddresses cannot be empty");
         require(tokenAddresses.length == tokenIds.length,
@@ -70,7 +73,7 @@ contract SimpleVault is Ownable, ERC721Holder {
     * @notice Allows owner to transfer NFTs from the vault.
     * Eg, [3, 200, 54]
     */
-    function safeTransferAsset(uint256[] calldata assetIds) external onlyOwner {
+    function safeTransferAsset(uint256[] calldata assetIds) external override onlyOwner {
         require(!locked, "{safeTransferAsset} : locked");
         require(assetIds.length > 0, "{safeTransferAsset} : assetIds cannot be empty");
         // validate inputs
@@ -90,17 +93,29 @@ contract SimpleVault is Ownable, ERC721Holder {
     }
 
     // admin functions in case something goes wrong
-    function escapeHatchERC721(address tokenAddress, uint256 tokenId) external onlyOwner {
+    function escapeHatchERC721(address tokenAddress, uint256 tokenId) external override onlyOwner {
         IERC721(tokenAddress).safeTransferFrom(address(this), owner(), tokenId);
     }
 
     function setDecentralandOperator(address registryAddress, address operatorAddress,
-        uint256 assetId) external onlyOwner {
+        uint256 assetId) external override onlyOwner {
         IDecentralandLandRegistry(registryAddress).setUpdateOperator(assetId, operatorAddress);
     }
 
-    function totalAssetSlots() external view returns (uint256) {
+    function totalAssetSlots() external view override returns (uint256) {
         return assets.length;
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Can only be called by the current owner.
+     */
+    function transferOwnership(address newOwner) public override(IVault, Ownable) onlyOwner {
+        super.transferOwnership(newOwner);
+    }
+
+    function onERC721Received(address, uint256, bytes memory) public pure override returns (bytes4) {
+        return ERC721_RECEIVED_OLD;
     }
 
     function toggleLock(bool value) internal {

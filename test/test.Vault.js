@@ -166,7 +166,7 @@ contract("SimpleVault", (accounts) => {
                         CATEGORY_1, CATEGORY_1,
                         CATEGORY_2, CATEGORY_2,
                     ], { from: tester1, gas: 2000000 }),
-                "Ownable: caller is not the owner.",
+                "Ownable: caller is not the owner",
             );
         });
     });
@@ -314,7 +314,7 @@ contract("SimpleVault", (accounts) => {
                         0,1,2,3,
                         4,5,6
                     ], { from: tester1, gas: 2000000 }),
-                "Ownable: caller is not the owner.",
+                "Ownable: caller is not the owner",
             );
             await expectRevert(
                 this.vault.safeTransferAsset(
@@ -322,7 +322,7 @@ contract("SimpleVault", (accounts) => {
                         0,1,2,3,
                         4,5,6
                     ], { from: tester2, gas: 2000000 }),
-                "Ownable: caller is not the owner.",
+                "Ownable: caller is not the owner",
             );
         });
 
@@ -380,7 +380,7 @@ contract("SimpleVault", (accounts) => {
         it("fails when called by non-owner", async () => {
             await expectRevert(
                 this.vault.lockVault({ from: tester1, gas: 50000 }),
-                "Ownable: caller is not the owner.",
+                "Ownable: caller is not the owner",
             );
         });
 
@@ -512,7 +512,7 @@ contract("SimpleVault", (accounts) => {
             await this.vault.lockVault({ from: owner, gas: 50000 });
             await expectRevert(
                 this.vault.unlockVault({ from: tester1, gas: 50000 }),
-                "Ownable: caller is not the owner.",
+                "Ownable: caller is not the owner",
             );
         });
 
@@ -608,6 +608,92 @@ contract("SimpleVault", (accounts) => {
                 [
                     3
                 ], { from: owner, gas: 2000000 });
+        });
+
+    });
+
+    describe("transferOwnership", () => {
+
+        beforeEach(async () => {
+            snapshotId = (await timeMachine.takeSnapshot())["result"];
+        });
+
+        afterEach(async() => {
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+
+        it("works when called by owner", async () => {
+            assert.equal(owner, await this.vault.owner());
+            await this.vault.transferOwnership(tester1, { from: owner, gas: 50000 });
+            assert.equal(tester1, await this.vault.owner());
+        });
+
+        it("fails when called by non-owner", async () => {
+            await expectRevert(
+                this.vault.transferOwnership(tester2, { from: tester1, gas: 50000 }),
+                "Ownable: caller is not the owner",
+            );
+        });
+
+        it("prevents addition / removal of assets after ownership transfer", async () => {
+            // mint 4 TNFT1s to owner
+            for (i = 0; i < 4; i++) {
+                await this.nft1.mintTo(tester1);
+            }
+            // mint 3 TNFT2s to owner
+            for (i = 0; i < 3; i++) {
+                await this.nft2.mintTo(tester2);
+            }
+            await this.nft1.transferFrom(tester1, owner, 1, {from: tester1});
+            await this.nft1.transferFrom(tester1, owner, 2, {from: tester1});
+            await this.nft1.transferFrom(tester1, owner, 3, {from: tester1});
+            await this.nft1.transferFrom(tester1, owner, 4, {from: tester1});
+            await this.nft2.transferFrom(tester2, owner, 1, {from: tester2});
+            await this.nft2.transferFrom(tester2, owner, 2, {from: tester2});
+            await this.nft2.transferFrom(tester2, owner, 3, {from: tester2});
+            await this.nft1.approve(this.vault.address, 1, {from: owner});
+            await this.nft1.approve(this.vault.address, 2, {from: owner});
+            await this.nft1.approve(this.vault.address, 3, {from: owner});
+            await this.nft1.approve(this.vault.address, 4, {from: owner});
+            await this.nft2.approve(this.vault.address, 1, {from: owner});
+            await this.nft2.approve(this.vault.address, 2, {from: owner});
+            await this.nft2.approve(this.vault.address, 3, {from: owner});
+            await this.vault.safeAddAsset(
+                [
+                    this.nft1.address, this.nft1.address, this.nft1.address,
+                    this.nft2.address, this.nft2.address
+                ],
+                [
+                    1,2,3,
+                    1,2
+                ],
+                [
+                    CATEGORY_1, CATEGORY_1, CATEGORY_1,
+                    CATEGORY_2, CATEGORY_2
+                ], { from: owner, gas: 2000000 });
+            await this.vault.transferOwnership(tester1, { from: owner, gas: 50000 });
+            // fails when previous owner tries to add assets
+            await expectRevert(
+                this.vault.safeAddAsset(
+                    [
+                        this.nft1.address, this.nft2.address
+                    ],
+                    [
+                        4,3
+                    ],
+                    [
+                        CATEGORY_1, CATEGORY_2
+                    ], { from: owner, gas: 2000000 }),
+                "Ownable: caller is not the owner",
+            );
+            // fails when previous owner tries to remove an asset
+            await expectRevert(
+                this.vault.safeTransferAsset(
+                    [
+                        3
+                    ], { from: owner, gas: 2000000 }),
+                "Ownable: caller is not the owner",
+            );
         });
 
     });

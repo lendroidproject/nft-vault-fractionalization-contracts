@@ -4,16 +4,17 @@ const { BN, constants, time, ether, expectRevert } = require("@openzeppelin/test
 
 const { expect } = require("chai");
 
-const Market = artifacts.require("SimpleMarket");
+const Market2 = artifacts.require("SimpleMarket2");
 
 const Token0 = artifacts.require("MockToken0");
 const Token1 = artifacts.require("MockToken1");
 const SimpleWallet = artifacts.require("MockSimpleWallet");
 
-const TOTAL_CAP = 576000;
+const INDIVIDUAL_CAP = 1000;
+const TOTAL_CAP = 360000;
 const TOKEN_0_PRICE_IN_TOKEN_1 = 0.36;// 1 Token0 = 0.36 Token1
 
-contract("SimpleMarket", (accounts) => {
+contract("SimpleMarket2", (accounts) => {
 
     const owner = accounts[0];
     const tester1 = accounts[1];
@@ -29,7 +30,7 @@ contract("SimpleMarket", (accounts) => {
     this.fundsWallet = null;
 
     before(async () => {
-        this.market = await Market.deployed();
+        this.market = await Market2.deployed();
         this.token0 = await Token0.deployed();
         this.token1 = await Token1.deployed();
         this.fundsWallet = await SimpleWallet.deployed();
@@ -57,7 +58,8 @@ contract("SimpleMarket", (accounts) => {
                     [
                         this.marketStart.toNumber(),
                         web3.utils.toWei(TOTAL_CAP.toString(), "ether"),
-                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether")
+                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether"),
+                        web3.utils.toWei(INDIVIDUAL_CAP.toString(), "ether")
                     ], { from: tester1, gas: 2000000 }),
                 "Ownable: caller is not the owner",
             );
@@ -70,7 +72,8 @@ contract("SimpleMarket", (accounts) => {
                     [
                         this.marketStart.toNumber(),
                         web3.utils.toWei(TOTAL_CAP.toString(), "ether"),
-                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether")
+                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether"),
+                        web3.utils.toWei(INDIVIDUAL_CAP.toString(), "ether")
                     ], { from: owner, gas: 2000000 }),
                 "{createMarket} : token0Address is not contract",
             );
@@ -80,7 +83,8 @@ contract("SimpleMarket", (accounts) => {
                     [
                         this.marketStart.toNumber(),
                         web3.utils.toWei(TOTAL_CAP.toString(), "ether"),
-                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether")
+                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether"),
+                        web3.utils.toWei(INDIVIDUAL_CAP.toString(), "ether")
                     ], { from: owner, gas: 2000000 }),
                 "{createMarket} : token0Address is not contract",
             );
@@ -93,7 +97,8 @@ contract("SimpleMarket", (accounts) => {
                     [
                         this.marketStart.toNumber(),
                         web3.utils.toWei(TOTAL_CAP.toString(), "ether"),
-                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether")
+                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether"),
+                        web3.utils.toWei(INDIVIDUAL_CAP.toString(), "ether")
                     ], { from: owner, gas: 2000000 }),
                 "{createMarket} : token1Address is not contract",
             );
@@ -103,7 +108,8 @@ contract("SimpleMarket", (accounts) => {
                     [
                         this.marketStart.toNumber(),
                         web3.utils.toWei(TOTAL_CAP.toString(), "ether"),
-                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether")
+                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether"),
+                        web3.utils.toWei(INDIVIDUAL_CAP.toString(), "ether")
                     ], { from: owner, gas: 2000000 }),
                 "{createMarket} : token1Address is not contract",
             );
@@ -116,7 +122,8 @@ contract("SimpleMarket", (accounts) => {
                     [
                         this.marketStart.toNumber(),
                         web3.utils.toWei(TOTAL_CAP.toString(), "ether"),
-                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether")
+                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether"),
+                        web3.utils.toWei(INDIVIDUAL_CAP.toString(), "ether")
                     ], { from: owner, gas: 2000000 }),
                 "{createMarket} : invalid fundsWalletAddress",
             );
@@ -129,7 +136,8 @@ contract("SimpleMarket", (accounts) => {
                     [
                         0,
                         web3.utils.toWei(TOTAL_CAP.toString(), "ether"),
-                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether")
+                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether"),
+                        web3.utils.toWei(INDIVIDUAL_CAP.toString(), "ether")
                     ], { from: owner, gas: 2000000 }),
                 "{createMarket} : marketStart should be in the future",
             );
@@ -139,7 +147,8 @@ contract("SimpleMarket", (accounts) => {
                     [
                         this.currentTime.sub(new BN(1)),
                         web3.utils.toWei(TOTAL_CAP.toString(), "ether"),
-                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether")
+                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether"),
+                        web3.utils.toWei(INDIVIDUAL_CAP.toString(), "ether")
                     ], { from: owner, gas: 2000000 }),
                 "{createMarket} : marketStart should be in the future",
             );
@@ -152,7 +161,8 @@ contract("SimpleMarket", (accounts) => {
                     [
                         this.marketStart.toNumber(),
                         web3.utils.toWei("0", "ether"),
-                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether")
+                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether"),
+                        web3.utils.toWei(INDIVIDUAL_CAP.toString(), "ether")
                     ], { from: owner, gas: 2000000 }),
                 "{createMarket} : totalCap cannot be zero",
             );
@@ -165,9 +175,24 @@ contract("SimpleMarket", (accounts) => {
                     [
                         this.marketStart.toNumber(),
                         web3.utils.toWei(TOTAL_CAP.toString(), "ether"),
-                        web3.utils.toWei("0", "ether")
+                        web3.utils.toWei("0", "ether"),
+                        web3.utils.toWei(INDIVIDUAL_CAP.toString(), "ether")
                     ], { from: owner, gas: 2000000 }),
                 "{createMarket} : token1PerToken0 cannot be zero",
+            );
+        });
+
+        it("fails with invalid individualCap", async () => {
+            await expectRevert(
+                this.market.createMarket(
+                    this.token0.address, this.token1.address, this.fundsWallet.address,
+                    [
+                        this.marketStart.toNumber(),
+                        web3.utils.toWei(TOTAL_CAP.toString(), "ether"),
+                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether"),
+                        web3.utils.toWei("0", "ether")
+                    ], { from: owner, gas: 2000000 }),
+                "{createMarket} : individualCap cannot be zero",
             );
         });
 
@@ -184,7 +209,8 @@ contract("SimpleMarket", (accounts) => {
                 [
                     this.marketStart.toNumber(),
                     web3.utils.toWei(TOTAL_CAP.toString(), "ether"),
-                    web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether")
+                    web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether"),
+                    web3.utils.toWei(INDIVIDUAL_CAP.toString(), "ether")
                 ], { from: owner, gas: 2000000 });
             assert.equal(await this.market.token0(), this.token0.address);
             assert.equal(await this.market.fundsWallet(), this.fundsWallet.address);
@@ -200,7 +226,8 @@ contract("SimpleMarket", (accounts) => {
                     [
                         this.marketStart.toNumber(),
                         web3.utils.toWei(TOTAL_CAP.toString(), "ether"),
-                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether")
+                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether"),
+                        web3.utils.toWei(INDIVIDUAL_CAP.toString(), "ether")
                     ], { from: owner, gas: 2000000 }),
                 "{createMarket} : market has already been created",
             );
@@ -213,9 +240,9 @@ contract("SimpleMarket", (accounts) => {
         beforeEach(async() => {
             snapshotId = (await timeMachine.takeSnapshot())["result"];
             // owner mints 1.6M Token0 to owner
-            await this.token0.mint(owner, web3.utils.toWei("1600000", "ether"), { from: owner, gas: 1000000 });
+            await this.token0.mint(owner, web3.utils.toWei("1000000", "ether"), { from: owner, gas: 1000000 });
             // owner sends 1.6M Token0 to market
-            await this.token0.transfer(this.market.address, web3.utils.toWei("1600000", "ether"), { from: owner, gas: 1000000 });
+            await this.token0.transfer(this.market.address, web3.utils.toWei("1000000", "ether"), { from: owner, gas: 1000000 });
         });
 
         afterEach(async() => {
@@ -250,34 +277,21 @@ contract("SimpleMarket", (accounts) => {
             );
         });
 
-        it("fails if contribution amount exceeds totalCap", async () => {
-            // owner mints 300K Token1 to tester1
-            let token1Amount = web3.utils.toWei("300000", "ether");
+        it("fails if contribution amount exceeds individualCap", async () => {
+            let token1Amount = web3.utils.toWei("2000", "ether");
+            // owner mints 1000 Token1 to tester1
             await this.token1.mint(tester1, token1Amount, { from: owner, gas: 1000000 });
             expect(await this.token1.balanceOf(tester1)).to.be.bignumber.equal(token1Amount);
-            // tester1 approves 300K Token1 to app
+            // tester1 approves 1000 Token1 to app
             await this.token1.approve(this.market.address, token1Amount, { from: tester1, gas: 1000000 });
-            // owner mints 300K Token1 to tester2
-            await this.token1.mint(tester2, token1Amount, { from: owner, gas: 1000000 });
-            expect(await this.token1.balanceOf(tester2)).to.be.bignumber.equal(token1Amount);
-            // tester2 approves 300K Token1 to app
-            await this.token1.approve(this.market.address, token1Amount, { from: tester2, gas: 1000000 });
-            // tester1 pays 150K Token1 to app
-            await this.market.pay(web3.utils.toWei("150000", "ether"), {from: tester1, gas: 2500000});
-            expect(await this.token1.balanceOf(this.fundsWallet.address)).to.be.bignumber.equal(web3.utils.toWei("150000", "ether"));
-            expect(await this.token0.balanceOf(tester1)).to.be.bignumber.equal("416666666666666666666666");
-            // tester2 pays 150K Token1 to app
-            await this.market.pay(web3.utils.toWei("150000", "ether"), {from: tester2, gas: 2500000});
-            expect(await this.token1.balanceOf(this.fundsWallet.address)).to.be.bignumber.equal(web3.utils.toWei("300000", "ether"));
-            expect(await this.token0.balanceOf(tester2)).to.be.bignumber.equal("416666666666666666666666");
-            // tester1 pays 150K Token1 to app
-            await this.market.pay(web3.utils.toWei("150000", "ether"), {from: tester1, gas: 2500000});
-            expect(await this.token1.balanceOf(this.fundsWallet.address)).to.be.bignumber.equal(web3.utils.toWei("450000", "ether"));
-            expect(await this.token0.balanceOf(tester1)).to.be.bignumber.equal("833333333333333333333332");
+            // tester1 pays 999 Token1 to app
+            await this.market.pay(web3.utils.toWei("999", "ether"), {from: tester1, gas: 2500000});
+            expect(await this.token1.balanceOf(this.fundsWallet.address)).to.be.bignumber.equal(web3.utils.toWei("999", "ether"));
+            expect(await this.token0.balanceOf(tester1)).to.be.bignumber.equal(web3.utils.toWei("2775", "ether"));
             // fails when tester2 tries to pay 150K Token1 to app
             await expectRevert(
-                this.market.pay(web3.utils.toWei("150000", "ether"), {from: tester2, gas: 2500000}),
-                "{pay} : token1Amount cannot exceed totalCap",
+                this.market.pay(web3.utils.toWei("2", "ether"), {from: tester1, gas: 2500000}),
+                "{pay} : token1Amount cannot exceed individualCap",
             );
         });
     });
@@ -287,9 +301,9 @@ contract("SimpleMarket", (accounts) => {
         beforeEach(async() => {
             snapshotId = (await timeMachine.takeSnapshot())["result"];
             // owner mints 1.6M Token0 to owner
-            await this.token0.mint(owner, web3.utils.toWei("1600000", "ether"), { from: owner, gas: 1000000 });
+            await this.token0.mint(owner, web3.utils.toWei("1000000", "ether"), { from: owner, gas: 1000000 });
             // owner sends 1.6M Token0 to market
-            await this.token0.transfer(this.market.address, web3.utils.toWei("1600000", "ether"), { from: owner, gas: 1000000 });
+            await this.token0.transfer(this.market.address, web3.utils.toWei("1000000", "ether"), { from: owner, gas: 1000000 });
         });
 
         afterEach(async() => {
@@ -306,14 +320,10 @@ contract("SimpleMarket", (accounts) => {
             await this.token1.mint(tester2, token1Amount, { from: owner, gas: 1000000 });
             // tester2 approves 300K Token1 to app
             await this.token1.approve(this.market.address, token1Amount, { from: tester2, gas: 1000000 });
-            // tester1 pays 150K Token1 to app
-            await this.market.pay(web3.utils.toWei("150000", "ether"), {from: tester1, gas: 2500000});
-            // tester2 pays 150K Token1 to app
-            await this.market.pay(web3.utils.toWei("150000", "ether"), {from: tester2, gas: 2500000});
-            // tester1 pays 150K Token1 to app
-            await this.market.pay(web3.utils.toWei("150000", "ether"), {from: tester1, gas: 2500000});
-            // tester2 pays 150K Token1 to app
-            await this.market.pay(web3.utils.toWei("126000", "ether"), {from: tester2, gas: 2500000});
+            // tester1 pays 1000 Token1 to app
+            await this.market.pay(web3.utils.toWei("1000", "ether"), {from: tester1, gas: 2500000});
+            // tester2 pays 1000 Token1 to app
+            await this.market.pay(web3.utils.toWei("1000", "ether"), {from: tester2, gas: 2500000});
             expect(await this.market.marketOpen(), true);
             expect(await this.market.marketClosed(), false);
             // owner successfully closes the market

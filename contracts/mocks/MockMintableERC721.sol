@@ -18,28 +18,12 @@ contract MockMintableERC721 is ERC721, Ownable {
         symbol) {}// solhint-disable-line no-empty-blocks
 
     /**
-     * @notice set the base api url of the Right token
-     * @param url : string representing the api url
-    */
-    function setApiBaseUrl(string memory url) external onlyOwner {
-        _setBaseURI(url);
-    }
-
-    /**
      * @notice Allows owner to mint a a token to a given address
      * dev Mints a new token to the given address, increments currentTokenId
      * @param to address of the future owner of the token
     */
     function mintTo(address to) public onlyOwner {
         _mintTo(to);
-    }
-
-    /**
-     * @notice Displays the id of the latest token that was minted
-     * @return uint256 : latest minted token id
-    */
-    function currentTokenId() public view returns (uint256) {
-        return _tokenIdTracker.current();
     }
 
     function _mintTo(address to) internal {

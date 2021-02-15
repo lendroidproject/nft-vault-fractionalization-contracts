@@ -14,7 +14,7 @@ import "./IToken0.sol";
     @notice Smart contract representing token0 market
     @dev Audit certificate : Pending
 */
-contract SimpleMarket is Ownable {
+contract SimpleMarket2 is Ownable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
     using SafeERC20 for IToken0;
@@ -29,6 +29,7 @@ contract SimpleMarket is Ownable {
     uint256 public marketStart;
     address public fundsWallet;// address where funds are collected
     uint256 public totalCap;// total payment cap
+    uint256 public individualCap;// individual payment cap
     uint256 public totaltoken1Paid;
     uint256 public token1PerToken0;// token0 distributed per token1 paid
     //// end user
@@ -39,7 +40,7 @@ contract SimpleMarket is Ownable {
 
     function createMarket(address token0Address, address token1Address,
         address fundsWalletAddress,
-        uint256[3] memory uint256Values) external onlyOwner {
+        uint256[4] memory uint256Values) external onlyOwner {
         require(marketStatus == MarketStatus.CREATED, "{createMarket} : market has already been created");
         // input validations
         require(token0Address.isContract(), "{createMarket} : token0Address is not contract");
@@ -49,6 +50,7 @@ contract SimpleMarket is Ownable {
         require(uint256Values[0] >= block.timestamp, "{createMarket} : marketStart should be in the future");
         require(uint256Values[1] > 0, "{createMarket} : totalCap cannot be zero");
         require(uint256Values[2] > 0, "{createMarket} : token1PerToken0 cannot be zero");
+        require(uint256Values[3] > 0, "{createMarket} : individualCap cannot be zero");
         marketStatus = MarketStatus.OPEN;
         // set values
         token0 = IToken0(token0Address);
@@ -57,6 +59,7 @@ contract SimpleMarket is Ownable {
         marketStart = uint256Values[0];
         totalCap = uint256Values[1];
         token1PerToken0 = uint256Values[2];
+        individualCap = uint256Values[3];
     }
 
     /**
@@ -78,6 +81,8 @@ contract SimpleMarket is Ownable {
         // validations
         require(token1Amount > 0, "{pay} : token1Amount cannot be zero");
         require(totaltoken1Paid.add(token1Amount) <= totalCap, "{pay} : token1Amount cannot exceed totalCap");
+        require(payments[msg.sender].add(token1Amount) <= individualCap,
+            "{pay} : token1Amount cannot exceed individualCap");
         // if we have not received any WEI from this address until now, then we add this address to buyers list.
         if (payments[msg.sender] == 0) {
             buyers.push(msg.sender);
