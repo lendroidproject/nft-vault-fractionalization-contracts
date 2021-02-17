@@ -13,15 +13,12 @@ const Market2 = artifacts.require("SimpleMarket2");
 
 const Buyout = artifacts.require("SimpleBuyout");
 
-const Redeem = artifacts.require("SimpleRedeem");
-
 module.exports = function (deployer) {
     deployer.deploy(MockPacemaker);
     deployer.deploy(Vault);
     deployer.deploy(Market);
     deployer.deploy(Market2);
     deployer.deploy(Buyout);
-    deployer.deploy(Redeem);
 
     deployer.deploy(Token0);
     deployer.deploy(Token1);

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: https://github.com/lendroidproject/protocol.2.0/blob/master/LICENSE.md
 pragma solidity 0.7.5;
-pragma abicoder v2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
@@ -20,7 +19,9 @@ contract SimpleRedeem is IRedeem {
     using SafeMath for uint256;
     using Address for address;
 
-    bool public enabled;
+    enum RedeemStatus { CREATED, ENABLED }
+
+    RedeemStatus public status;
     IToken0 public token0;
     //// admin
     IERC20 public token2;
@@ -29,18 +30,19 @@ contract SimpleRedeem is IRedeem {
     function enableRedeem(address token0Address, address token2Address,
             uint256 token2Amount) external override {
         // validate status
-        require(!enabled, "{enableRedeem} : redeem has already been enabled");
+        require(status == RedeemStatus.CREATED, "{enableRedeem} : redeem has already been enabled");
         // input validations
         require(token0Address.isContract(), "{enableBuyout} : invalid token0Address");
         require(token2Address.isContract(), "{enableBuyout} : invalid token2Address");
         // set values
-        enabled = true;
+        status = RedeemStatus.ENABLED;
         token0 = IToken0(token0Address);
         token2 = IERC20(token2Address);
         redeemToken2Amount = token2Amount;
     }
 
     function redeem(uint256 token0Amount) external override {
+        require(status == RedeemStatus.ENABLED, "{redeem} : redeem has not yet been enabled");
         require(token0.balanceOf(msg.sender) >= token0Amount);
         uint256 token2Amount = token2AmountRedeemable(token0Amount);
         require(token2Amount > 0, "{redeem} : token2Amount cannot be zero");

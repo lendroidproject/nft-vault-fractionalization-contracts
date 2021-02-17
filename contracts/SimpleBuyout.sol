@@ -34,6 +34,8 @@ contract SimpleBuyout is Ownable, Pacemaker {
     uint256[4] public epochs;// [startEpoch, endEpoch, durationInEpochs, bidIntervalInEpochs]
     //// vault
     IVault public vault;
+    //// redeem
+    IRedeem public redemption;
     //// governance
     uint256 public stopThresholdPercent;
     uint256 public totalToken0Staked;
@@ -160,7 +162,7 @@ contract SimpleBuyout is Ownable, Pacemaker {
 
     function endBuyout() external {
         // solhint-disable-next-line not-rely-on-time
-        require(currentEpoch() > epochs[1], "{endBuyout} : buyout has not yet ended");
+        require(currentEpoch() > epochs[1], "{endBuyout} : end epoch has not yet been reached");
         require(status != BuyoutStatus.ENDED, "{endBuyout} : buyout has already ended");
         require(highestBidder != address(0), "{endBuyout} : buyout does not have highestBidder");
         // additional safety checks
@@ -177,14 +179,15 @@ contract SimpleBuyout is Ownable, Pacemaker {
         assembly {
             redeemAddress := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }
-        IRedeem(redeemAddress).enableRedeem(address(token0), address(token2), highestBidValues[2]);
+        redemption = IRedeem(redeemAddress);
+        redemption.enableRedeem(address(token0), address(token2), highestBidValues[2]);
         // burn token0Amount
         if (highestBidValues[1] > 0) {
             token0.burn(highestBidValues[1]);
         }
         // send token2Amount to redeem contract
         if (highestBidValues[2] > 0) {
-            token2.safeTransferFrom(address(this), redeemAddress, highestBidValues[2]);
+            token2.safeTransfer(redeemAddress, highestBidValues[2]);
         }
         // transfer ownership of Vault to highestBidder
         vault.transferOwnership(highestBidder);
