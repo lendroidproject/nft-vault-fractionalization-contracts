@@ -154,9 +154,6 @@ contract SimpleBuyout is Ownable, Pacemaker {
         uint256 token0Amount = token0Staked[msg.sender];
         require(token0Amount > 0, "{withdrawStakedToken0} : no staked token0Amount");
         token0Staked[msg.sender] = 0;
-        if (status == BuyoutStatus.ACTIVE) {
-            totalToken0Staked = totalToken0Staked.sub(token0Amount);
-        }
         token0.safeTransfer(msg.sender, token0Amount);
     }
 
