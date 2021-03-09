@@ -1,4 +1,3 @@
-/* eslint-disable prefer-const */
 const MockPacemaker = artifacts.require("MockPacemaker");
 
 const Vault = artifacts.require("SimpleVault");

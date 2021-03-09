@@ -108,11 +108,15 @@ contract("SimpleRedeem", (accounts) => {
     });
 
     describe("enableRedeem", () => {
+        const redeemToken0Amount = web3.utils.toWei("500000", "ether");
+        const redeemToken2Amount = web3.utils.toWei("600000", "ether");
 
         it("deploys with correct parameters", async () => {
+            assert.equal(1, await this.redemption.status.call());
             assert.equal(this.token0.address, await this.redemption.token0.call());
             assert.equal(this.token2.address, await this.redemption.token2.call());
             assert.equal(this.token2Amount, await this.redemption.redeemToken2Amount.call());
+            assert.equal(redeemToken2Amount, await this.redemption.token2AmountRedeemable(redeemToken0Amount));
         });
 
         it("cannot be called twice", async () => {
@@ -127,21 +131,43 @@ contract("SimpleRedeem", (accounts) => {
     });
 
     describe("redeem", () => {
-
-        let redeemToken0Amount = web3.utils.toWei("500000", "ether");// 0.5M token0
+        const redeemToken0Amount = web3.utils.toWei("500000", "ether");
 
         beforeEach(async () => {
             snapshotId = (await timeMachine.takeSnapshot())["result"];
+
+            // tester2 approves 0.5M Token0 to redeem contract
+            await this.token0.approve(this.redemption.address, redeemToken0Amount, { from: tester2, gas: 200000 });
         });
 
         afterEach(async() => {
             await timeMachine.revertToSnapshot(snapshotId);
         });
 
+        it("fails with invalid token0 amount (insufficient)", async() => {
+            const invalidToken0Amount = web3.utils.toWei("1000000", "ether");
+            await expectRevert(
+                this.redemption.redeem(
+                    invalidToken0Amount,
+                    { from: tester2, gas: 2000000 }
+                ),
+                "{redeem} : insufficient token0 amount"
+            );
+        });
+
+        it("fails with invalid token0 amount (zero)", async() => {
+            const zeroToken0Amount = web3.utils.toWei("0", "ether");
+            await expectRevert(
+                this.redemption.redeem(
+                    zeroToken0Amount,
+                    { from: tester2, gas: 2000000 }
+                ),
+                "{redeem} : token0 amount cannot be zero"
+            );
+        });
+
         it("works as expected", async () => {
-            // tester2 approves 0.5M Token0 to redeem contract
-            await this.token0.approve(this.redemption.address, redeemToken0Amount, { from: tester2, gas: 100000 });
-            await this.redemption.redeem(redeemToken0Amount, { from: tester2, gas: 100000 });
+            await this.redemption.redeem(redeemToken0Amount, { from: tester2, gas: 200000 });
             expect(await this.token0.balanceOf(tester2)).to.be.bignumber.equal("0");
             expect(await this.token2.balanceOf(tester2)).to.be.bignumber.equal(ether("600000"));
         });
