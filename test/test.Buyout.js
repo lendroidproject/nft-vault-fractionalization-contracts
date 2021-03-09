@@ -479,8 +479,7 @@ contract("SimpleBuyout", (accounts) => {
             expect(await this.token0.balanceOf(this.buyout.address)).to.be.bignumber.equal(ether("1500000"));
             expect(await this.token0.balanceOf(tester2)).to.be.bignumber.equal("0");
             // tester2 unstakes her staked token0s
-            await this.buyout.withdrawStakedToken0({ from: tester2, gas: 250000 });
-            expect(await this.buyout.totalToken0Staked()).to.be.bignumber.equal("0");
+            await this.buyout.withdrawStakedToken0({ from: tester2, gas: 300000 });
             expect(await this.buyout.token0Staked(tester2)).to.be.bignumber.equal("0");
             expect(await this.token0.balanceOf(this.buyout.address)).to.be.bignumber.equal(ether("1000000"));
             expect(await this.token0.balanceOf(tester2)).to.be.bignumber.equal(token0Amount.toString());
