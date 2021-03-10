@@ -19,6 +19,7 @@ contract("SimpleMarket2", (accounts) => {
     const owner = accounts[0];
     const tester1 = accounts[1];
     const tester2 = accounts[2];
+    const tester3 = accounts[3];
 
     this.currentTime = null;
 
@@ -231,6 +232,17 @@ contract("SimpleMarket2", (accounts) => {
                     ], { from: owner, gas: 2000000 }),
                 "{createMarket} : market has already been created",
             );
+            // cannot make a purchase until marketStart
+            let token1Amount = web3.utils.toWei("360", "ether");
+            // owner mints 1000 Token1 to tester1
+            await this.token1.mint(tester3, token1Amount, { from: owner, gas: 1000000 });
+            // tester1 approves 1000 Token1 to app
+            await this.token1.approve(this.market.address, token1Amount, { from: tester3, gas: 1000000 });
+            // tester1 tries to pay 1000 Token1
+            await expectRevert(
+                this.market.pay(token1Amount, {from: tester3, gas: 2500000}),
+                "{pay} : market has not yet started",
+            );
         });
 
     });
@@ -274,6 +286,20 @@ contract("SimpleMarket2", (accounts) => {
             await expectRevert(
                 this.market.pay(web3.utils.toWei("0", "ether"), {from: tester1, gas: 2000000}),
                 "{pay} : token1Amount cannot be zero",
+            );
+        });
+
+        it("fails if market is closed", async () => {
+            await this.market.closeMarket({from: owner, gas: 100000});
+            let token1Amount = web3.utils.toWei("360", "ether");
+            // owner mints 1000 Token1 to tester1
+            await this.token1.mint(tester1, token1Amount, { from: owner, gas: 1000000 });
+            // tester1 approves 1000 Token1 to app
+            await this.token1.approve(this.market.address, token1Amount, { from: tester1, gas: 1000000 });
+            // tester1 tries to pay 1000 Token1
+            await expectRevert(
+                this.market.pay(token1Amount, {from: tester1, gas: 2500000}),
+                "{pay} : marketStatus is not OPEN",
             );
         });
 
