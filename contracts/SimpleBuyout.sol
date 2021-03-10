@@ -79,12 +79,12 @@ contract SimpleBuyout is Ownable, Pacemaker {
         // verify token0 and token2 amounts are sufficient to place bid
         require(totalBidAmount > startThreshold, "{placeBid} : totalBidAmount does not meet minimum threshold");
         require(totalBidAmount > highestBidValues[0], "{placeBid} : there already is a higher bid");
-        require(token2.balanceOf(msg.sender) >= token2Amount, "insufficient token2 balance");
+        require(token2.balanceOf(msg.sender) >= token2Amount, "{placeBid} : insufficient token2 balance");
         uint256 token0Amount = requiredToken0ToBid(totalBidAmount, token2Amount);
-        require(token0.balanceOf(msg.sender) >= token0Amount, "insufficient token0 balance");
+        require(token0.balanceOf(msg.sender) >= token0Amount, "{placeBid} : insufficient token0 balance");
         // update epochs
         if (status == BuyoutStatus.ACTIVE) {
-            require(currentEpoch() <= epochs[1], "{placeBid} : buyout has ended");
+            require(currentEpoch() <= epochs[1], "{placeBid} : buyout end epoch has been surpassed");
             epochs[1] = currentEpoch().add(epochs[3]);
         }
         // activate buyout process if applicable
@@ -119,7 +119,7 @@ contract SimpleBuyout is Ownable, Pacemaker {
         // verify buyout has not ended
         require((
             (status == BuyoutStatus.ACTIVE) && (currentEpoch() >= epochs[0]) && (currentEpoch() <= epochs[1])
-        ), "{stakeToken0ToStopBuyout} : Buyout is not active");
+        ), "{stakeToken0ToStopBuyout} : buyout is not active");
         uint256 updatedTotalToken0Staked = totalToken0Staked.add(token0Amount);
         if (updatedTotalToken0Staked < stopThresholdPercent.mul(token0.totalSupply().div(100))) {
             totalToken0Staked = updatedTotalToken0Staked;
@@ -132,6 +132,8 @@ contract SimpleBuyout is Ownable, Pacemaker {
             if (highestBidValues[2] > 0) {
                 token2.safeTransfer(highestBidder, highestBidValues[2]);
             }
+            // increase startThreshold by 8% of last bid
+            startThreshold = highestBidValues[2].mul(108).div(100);
             // reset highestBidder
             highestBidder = address(0);
             // reset highestBidValues
@@ -142,8 +144,6 @@ contract SimpleBuyout is Ownable, Pacemaker {
             epochs[1] = 0;
             // set status
             status = BuyoutStatus.REVOKED;
-            // increase startThreshold by 8%
-            startThreshold = startThreshold.mul(108).div(100);
             emit BuyoutRevoked(updatedTotalToken0Staked);
         }
         token0Staked[msg.sender] = token0Staked[msg.sender].add(token0Amount);
@@ -153,6 +153,9 @@ contract SimpleBuyout is Ownable, Pacemaker {
     function withdrawStakedToken0() external {
         uint256 token0Amount = token0Staked[msg.sender];
         require(token0Amount > 0, "{withdrawStakedToken0} : no staked token0Amount");
+        if (totalToken0Staked > 0) {
+            totalToken0Staked = totalToken0Staked.sub(token0Amount);
+        }
         token0Staked[msg.sender] = 0;
         token0.safeTransfer(msg.sender, token0Amount);
     }

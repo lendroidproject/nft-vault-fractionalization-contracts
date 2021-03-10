@@ -1,3 +1,5 @@
 module.exports = {
-  skipFiles: ['heartbeat/Pacemaker.sol']
+    skipFiles: [
+        'heartbeat/Pacemaker.sol'
+    ]
 };
