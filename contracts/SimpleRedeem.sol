@@ -31,9 +31,11 @@ contract SimpleRedeem is IRedeem {
             uint256 token2Amount) external override {
         // validate status
         require(status == RedeemStatus.CREATED, "{enableRedeem} : redeem has already been enabled");
-        // input validations
-        require(token0Address.isContract(), "{enableBuyout} : invalid token0Address");
-        require(token2Address.isContract(), "{enableBuyout} : invalid token2Address");
+
+        // input validations - we don't need this validation while Buyout check token0 and token 2
+        // require(token0Address.isContract(), "{enableRedeem} : invalid token0Address");
+        // require(token2Address.isContract(), "{enableRedeem} : invalid token2Address");
+
         // set values
         status = RedeemStatus.ENABLED;
         token0 = IToken0(token0Address);
@@ -43,9 +45,9 @@ contract SimpleRedeem is IRedeem {
 
     function redeem(uint256 token0Amount) external override {
         require(status == RedeemStatus.ENABLED, "{redeem} : redeem has not yet been enabled");
-        require(token0.balanceOf(msg.sender) >= token0Amount);
+        require(token0.balanceOf(msg.sender) >= token0Amount, "{redeem} : insufficient token0 amount");
+        require(token0Amount > 0, "{redeem} : token0 amount cannot be zero");
         uint256 token2Amount = token2AmountRedeemable(token0Amount);
-        require(token2Amount > 0, "{redeem} : token2Amount cannot be zero");
         require(token2.balanceOf(address(this)) >= token2Amount);
         redeemToken2Amount = redeemToken2Amount.sub(token2Amount);
         // burn token0Amount
