@@ -34,7 +34,7 @@
     "test": "run-s lint:js lint:sol build:* test:*",
     "test-dev": "run-s lint:js lint:sol test:*",
     "test:contracts": "./node_modules/truffle/build/cli.bundled.js test test/contracts.test.js && cat build/eth-gas-report.txt | tee build/contracts-eth-gas-report.txt",
-    "test-coverage": "./node_modules/truffle/build/cli.bundled.js run coverage",
+    "test-coverage": "node --max-old-space-size=4096 ./node_modules/truffle/build/cli.bundled.js run coverage",
     "lint": "run-s lint:*",
     "lint:js": "./node_modules/eslint/bin/eslint.js . --max-warnings=0 --report-unused-disable-directives && echo '✔  Your .js files look good.'",
     "lint:sol": "./node_modules/solhint/solhint.js -w 0 contracts/*.sol contracts/*/*.sol && echo '✔  Your .sol files look good.'"
