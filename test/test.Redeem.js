@@ -1,7 +1,7 @@
 const timeMachine = require("ganache-time-traveler");
 const currentEpoch = require("./helpers/currentEpoch");
 
-const { time, ether, expectRevert } = require("@openzeppelin/test-helpers");
+const { time, constants, ether, expectRevert } = require("@openzeppelin/test-helpers");
 
 const { expect } = require("chai");
 
@@ -111,6 +111,48 @@ contract("SimpleRedeem", (accounts) => {
         const redeemToken0Amount = web3.utils.toWei("500000", "ether");
         const redeemToken2Amount = web3.utils.toWei("600000", "ether");
 
+        it("fails with invalid token0Address", async () => {
+            let standaloneRedemption = await Redeem.new();
+            await expectRevert(
+                standaloneRedemption.enableRedeem(
+                    constants.ZERO_ADDRESS, this.token2.address, redeemToken2Amount, { from: owner, gas: 2000000 }
+                ),
+                "{enableRedeem} : invalid token0Address"
+            );
+            await expectRevert(
+                standaloneRedemption.enableRedeem(
+                    tester1, this.token2.address, redeemToken2Amount, { from: owner, gas: 2000000 }
+                ),
+                "{enableRedeem} : invalid token0Address"
+            );
+        });
+
+        it("fails with invalid token2Address", async () => {
+            let standaloneRedemption = await Redeem.new();
+            await expectRevert(
+                standaloneRedemption.enableRedeem(
+                    this.token0.address, constants.ZERO_ADDRESS, redeemToken2Amount, { from: owner, gas: 2000000 }
+                ),
+                "{enableRedeem} : invalid token2Address"
+            );
+            await expectRevert(
+                standaloneRedemption.enableRedeem(
+                    this.token0.address, tester1, redeemToken2Amount, { from: owner, gas: 2000000 }
+                ),
+                "{enableRedeem} : invalid token2Address"
+            );
+        });
+
+        it("fails with invalid token2Address", async () => {
+            let standaloneRedemption = await Redeem.new();
+            await expectRevert(
+                standaloneRedemption.enableRedeem(
+                    this.token0.address, this.token2.address, 0, { from: owner, gas: 2000000 }
+                ),
+                "{enableRedeem} : token2Amount cannot be zero"
+            );
+        });
+
         it("deploys with correct parameters", async () => {
             assert.equal(1, await this.redemption.status.call());
             assert.equal(this.token0.address, await this.redemption.token0.call());
@@ -142,6 +184,14 @@ contract("SimpleRedeem", (accounts) => {
 
         afterEach(async() => {
             await timeMachine.revertToSnapshot(snapshotId);
+        });
+
+        it("fails if status is not ENABLED", async() => {
+            let standaloneRedemption = await Redeem.new();
+            await expectRevert(
+                standaloneRedemption.redeem(redeemToken0Amount, { from: tester2, gas: 200000 }),
+                "{redeem} : redeem has not yet been enabled"
+            );
         });
 
         it("fails with invalid token0 amount (insufficient)", async() => {
