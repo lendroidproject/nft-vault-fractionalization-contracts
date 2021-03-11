@@ -55,6 +55,7 @@ contract SimpleVault is IVault, Ownable, ERC721Holder {
         // validate inputs
         for (uint i = 0; i < tokenAddresses.length; i++) {
             require(tokenAddresses[i].isContract(), "{safeAddAsset} : invalid tokenAddress");
+            require(IERC721(tokenAddresses[i]).ownerOf(tokenIds[i]) == owner(), "{safeAddAsset} : invalid tokenId");
         }
         for (uint i = 0; i < tokenAddresses.length; i++) {
             totalAssets = totalAssets.add(1);
@@ -111,6 +112,7 @@ contract SimpleVault is IVault, Ownable, ERC721Holder {
      * Can only be called by the current owner.
      */
     function transferOwnership(address newOwner) public override(IVault, Ownable) onlyOwner {
+        require(newOwner != address(0), "{transferOwnership} : invalid new owner");
         super.transferOwnership(newOwner);
     }
 
