@@ -32,19 +32,88 @@ contract("SimpleVault", (accounts) => {
 
     describe("safeAddAsset", () => {
 
-        beforeEach(async() => {
+        beforeEach(async () => {
             snapshotId = (await timeMachine.takeSnapshot())["result"];
         });
 
-        afterEach(async() => {
+        afterEach(async () => {
             await timeMachine.revertToSnapshot(snapshotId);
         });
 
-        it("deploys with owner", async () => {
-            assert.equal(owner, await this.vault.owner(), "owner is not deployer");
+        it("[require] - caller needs to be the owner", async () => {
+            await expectRevert(
+                this.vault.safeAddAsset(
+                    [],
+                    [],
+                    [], { from: tester1, gas: 2000000 }),
+                "Ownable: caller is not the owner",
+            );
         });
 
-        it("works when owner adds his assets", async () => {
+        it("[require] - vault needs to be unlocked", async () => {
+            assert.equal(false, await this.vault.locked());
+        });
+
+        it("[revert] - when empty tokenAddresses", async () => {
+            await expectRevert(
+                this.vault.safeAddAsset(
+                    [],
+                    [],
+                    [], { from: owner, gas: 2000000 }),
+                "{safeAddAsset} : tokenAddresses cannot be empty"
+            );
+        });
+
+        it("[revert] - when tokenAddresses and tokenIds lengths are not equal", async () => {
+            await expectRevert(
+                this.vault.safeAddAsset(
+                    [this.nft1.address],
+                    [],
+                    [CATEGORY_1], { from: owner, gas: 2000000 }),
+                "{safeAddAsset} : tokenAddresses and tokenIds lengths are not equal"
+            );
+        });
+
+        it("[revert] - when tokenAddresses and categories lengths are not equal", async () => {
+            await expectRevert(
+                this.vault.safeAddAsset(
+                    [this.nft1.address],
+                    [1],
+                    [], { from: owner, gas: 2000000 }),
+                "{safeAddAsset} : tokenAddresses and categories lengths are not equal"
+            );
+        });
+
+        it("[revert] - when invalid tokenAddress", async () => {
+            await expectRevert(
+                this.vault.safeAddAsset(
+                    [constants.ZERO_ADDRESS],
+                    [1],
+                    [CATEGORY_1], { from: owner, gas: 2000000 }),
+                "{safeAddAsset} : invalid tokenAddress"
+            );
+        });
+
+        it("[revert] - when invalid tokenId", async () => {
+            await this.nft1.mintTo(tester1);
+            await this.nft1.approve(this.vault.address, 1, { from: tester1 });
+            await expectRevert(
+                this.vault.safeAddAsset(
+                    [this.nft1.address],
+                    [1],
+                    [CATEGORY_1], { from: owner, gas: 2000000 }),
+                "{safeAddAsset} : invalid tokenId"
+            );
+            await expectRevert(
+                this.vault.safeAddAsset(
+                    [this.nft1.address],
+                    [2],
+                    [CATEGORY_1], { from: owner, gas: 2000000 }),
+                "ERC721: owner query for nonexistent token"
+            );
+        });
+
+        it("[success] - when owner adds his assets", async () => {
             // mint 4 TNFT1s to owner
             for (i = 0; i < 4; i++) {
                 await this.nft1.mintTo(owner);
@@ -53,13 +122,13 @@ contract("SimpleVault", (accounts) => {
             for (i = 0; i < 3; i++) {
                 await this.nft2.mintTo(owner);
             }
-            await this.nft1.approve(this.vault.address, 1, {from: owner});
-            await this.nft1.approve(this.vault.address, 2, {from: owner});
-            await this.nft1.approve(this.vault.address, 3, {from: owner});
-            await this.nft1.approve(this.vault.address, 4, {from: owner});
-            await this.nft2.approve(this.vault.address, 1, {from: owner});
-            await this.nft2.approve(this.vault.address, 2, {from: owner});
-            await this.nft2.approve(this.vault.address, 3, {from: owner});
+            await this.nft1.approve(this.vault.address, 1, { from: owner });
+            await this.nft1.approve(this.vault.address, 2, { from: owner });
+            await this.nft1.approve(this.vault.address, 3, { from: owner });
+            await this.nft1.approve(this.vault.address, 4, { from: owner });
+            await this.nft2.approve(this.vault.address, 1, { from: owner });
+            await this.nft2.approve(this.vault.address, 2, { from: owner });
+            await this.nft2.approve(this.vault.address, 3, { from: owner });
             expect(await this.vault.totalAssets()).to.be.bignumber.equal("0");
             expect(await this.vault.totalAssetSlots()).to.be.bignumber.equal("0");
             assert.equal(owner, await this.nft1.ownerOf(1));
@@ -75,8 +144,8 @@ contract("SimpleVault", (accounts) => {
                     this.nft2.address, this.nft2.address, this.nft2.address
                 ],
                 [
-                    1,2,3,4,
-                    1,2,3
+                    1, 2, 3, 4,
+                    1, 2, 3
                 ],
                 [
                     CATEGORY_1, CATEGORY_1, CATEGORY_1, CATEGORY_1,
@@ -120,111 +189,127 @@ contract("SimpleVault", (accounts) => {
             assert.equal(assetInfo.category, CATEGORY_2);
             assert.equal(assetInfo.tokenAddress, this.nft2.address);
             assert.equal(assetInfo.tokenId, 3);
-            // cannot add again
-            await expectRevert(
-                this.vault.safeAddAsset(
-                    [
-                        this.nft1.address, this.nft1.address, this.nft1.address, this.nft1.address,
-                        this.nft2.address, this.nft2.address, this.nft2.address
-                    ],
-                    [
-                        1,2,3,4,
-                        1,2,3
-                    ],
-                    [
-                        CATEGORY_1, CATEGORY_1, CATEGORY_1, CATEGORY_1,
-                        CATEGORY_2, CATEGORY_2, CATEGORY_2
-                    ], { from: owner, gas: 2000000 }),
-                "ERC721: transfer of token that is not own",
-            );
-        });
-
-        it("fails when non-owner adds his assets", async () => {
-            // mint 2 TNFT1s to tester1
-            for (i = 0; i < 2; i++) {
-                await this.nft1.mintTo(tester1);
-            }
-            // mint 2 TNFT2s to tester1
-            for (i = 0; i < 2; i++) {
-                await this.nft2.mintTo(tester1);
-            }
-            await this.nft1.approve(this.vault.address, 1, {from: tester1});
-            await this.nft1.approve(this.vault.address, 2, {from: tester1});
-            await this.nft2.approve(this.vault.address, 1, {from: tester1});
-            await this.nft2.approve(this.vault.address, 2, {from: tester1});
-            await expectRevert(
-                this.vault.safeAddAsset(
-                    [
-                        this.nft1.address, this.nft1.address,
-                        this.nft2.address, this.nft2.address,
-                    ],
-                    [
-                        1,2,
-                        1,2,
-                    ],
-                    [
-                        CATEGORY_1, CATEGORY_1,
-                        CATEGORY_2, CATEGORY_2,
-                    ], { from: tester1, gas: 2000000 }),
-                "Ownable: caller is not the owner",
-            );
         });
     });
 
-    describe("safeTransferAsset", () => {
+    describe("safeTransferAsset", async () => {
 
         beforeEach(async () => {
             snapshotId = (await timeMachine.takeSnapshot())["result"];
+        });
+
+        afterEach(async () => {
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+
+        it("[require] - caller needs to be the owner", async () => {
+            await expectRevert(
+                this.vault.safeTransferAsset(
+                    [], { from: tester1, gas: 2000000 }),
+                "Ownable: caller is not the owner",
+            );
+        });
+
+        it("[require] - vault needs to be unlocked", async () => {
+            assert.equal(false, await this.vault.locked());
+        });
+
+        it("[revert] - when empty assetIds", async () => {
+            await expectRevert(
+                this.vault.safeTransferAsset(
+                    [], { from: owner, gas: 2000000 }),
+                "{safeTransferAsset} : assetIds cannot be empty"
+            );
+        });
+
+        it("[revert] - when invalid assetIds", async () => {
+            await expectRevert(
+                this.vault.safeTransferAsset(
+                    [1], { from: owner, gas: 2000000 }),
+                "{safeTransferAsset} : 400, Invalid assetId"
+            );
+        });
+
+        it("[success] - works when called by owner", async () => {
             // mint 4 TNFT1s to owner
             for (i = 0; i < 4; i++) {
-                await this.nft1.mintTo(tester1);
+                await this.nft1.mintTo(owner);
             }
             // mint 3 TNFT2s to owner
             for (i = 0; i < 3; i++) {
-                await this.nft2.mintTo(tester2);
+                await this.nft2.mintTo(owner);
             }
-            await this.nft1.transferFrom(tester1, owner, 1, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 2, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 3, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 4, {from: tester1});
-            await this.nft2.transferFrom(tester2, owner, 1, {from: tester2});
-            await this.nft2.transferFrom(tester2, owner, 2, {from: tester2});
-            await this.nft2.transferFrom(tester2, owner, 3, {from: tester2});
-            await this.nft1.approve(this.vault.address, 1, {from: owner});
-            await this.nft1.approve(this.vault.address, 2, {from: owner});
-            await this.nft1.approve(this.vault.address, 3, {from: owner});
-            await this.nft1.approve(this.vault.address, 4, {from: owner});
-            await this.nft2.approve(this.vault.address, 1, {from: owner});
-            await this.nft2.approve(this.vault.address, 2, {from: owner});
-            await this.nft2.approve(this.vault.address, 3, {from: owner});
+            await this.nft1.approve(this.vault.address, 1, { from: owner });
+            await this.nft1.approve(this.vault.address, 2, { from: owner });
+            await this.nft1.approve(this.vault.address, 3, { from: owner });
+            await this.nft1.approve(this.vault.address, 4, { from: owner });
+            await this.nft2.approve(this.vault.address, 1, { from: owner });
+            await this.nft2.approve(this.vault.address, 2, { from: owner });
+            await this.nft2.approve(this.vault.address, 3, { from: owner });
             await this.vault.safeAddAsset(
                 [
                     this.nft1.address, this.nft1.address, this.nft1.address, this.nft1.address,
                     this.nft2.address, this.nft2.address, this.nft2.address
                 ],
                 [
-                    1,2,3,4,
-                    1,2,3
+                    1, 2, 3, 4,
+                    1, 2, 3
                 ],
                 [
                     CATEGORY_1, CATEGORY_1, CATEGORY_1, CATEGORY_1,
                     CATEGORY_2, CATEGORY_2, CATEGORY_2
                 ], { from: owner, gas: 2000000 });
+
+            // mass transfer
+            await this.vault.safeTransferAsset(
+                [
+                    0, 1, 2, 3,
+                    4, 5, 6
+                ], { from: owner, gas: 2000000 });
+            expect(await this.vault.totalAssets()).to.be.bignumber.equal("0");
+            assert.equal(owner, await this.nft1.ownerOf(1));
+            assert.equal(owner, await this.nft1.ownerOf(2));
+            assert.equal(owner, await this.nft1.ownerOf(3));
+            assert.equal(owner, await this.nft1.ownerOf(4));
+            assert.equal(owner, await this.nft2.ownerOf(1));
+            assert.equal(owner, await this.nft2.ownerOf(2));
+            assert.equal(owner, await this.nft2.ownerOf(3));
         });
 
-        afterEach(async() => {
-            await timeMachine.revertToSnapshot(snapshotId);
-        });
+        it("[success] - updates storage correctly", async () => {
+            // mint 4 TNFT1s to owner
+            for (i = 0; i < 4; i++) {
+                await this.nft1.mintTo(owner);
+            }
+            // mint 3 TNFT2s to owner
+            for (i = 0; i < 3; i++) {
+                await this.nft2.mintTo(owner);
+            }
+            await this.nft1.approve(this.vault.address, 1, { from: owner });
+            await this.nft1.approve(this.vault.address, 2, { from: owner });
+            await this.nft1.approve(this.vault.address, 3, { from: owner });
+            await this.nft1.approve(this.vault.address, 4, { from: owner });
+            await this.nft2.approve(this.vault.address, 1, { from: owner });
+            await this.nft2.approve(this.vault.address, 2, { from: owner });
+            await this.nft2.approve(this.vault.address, 3, { from: owner });
+            await this.vault.safeAddAsset(
+                [
+                    this.nft1.address, this.nft1.address, this.nft1.address, this.nft1.address,
+                    this.nft2.address, this.nft2.address, this.nft2.address
+                ],
+                [
+                    1, 2, 3, 4,
+                    1, 2, 3
+                ],
+                [
+                    CATEGORY_1, CATEGORY_1, CATEGORY_1, CATEGORY_1,
+                    CATEGORY_2, CATEGORY_2, CATEGORY_2
+                ], { from: owner, gas: 2000000 });
 
-        it("updates storage correctly", async () => {
-            expect(await this.vault.totalAssets()).to.be.bignumber.equal("7");
-            expect(await this.vault.totalAssetSlots()).to.be.bignumber.equal("7");
             assert.equal(this.vault.address, await this.nft1.ownerOf(4));
             // remove asset4. asset4 becomes null
             await this.vault.safeTransferAsset(
-                [
-                    3
-                ], { from: owner, gas: 2000000 });
+                [3], { from: owner, gas: 2000000 });
             // pre-removal  : [1,2,3,4,5,6,7]
             // post-removal : [1,2,3,-,5,6,7]
             expect(await this.vault.totalAssets()).to.be.bignumber.equal("6");
@@ -237,9 +322,7 @@ contract("SimpleVault", (accounts) => {
             assert.equal(assetInfo4.tokenId, "0");
             // remove asset2. asset2 becomes null
             await this.vault.safeTransferAsset(
-                [
-                    1
-                ], { from: owner, gas: 2000000 });
+                [1], { from: owner, gas: 2000000 });
             // pre-removal  : [1,2,3,-,5,6,7]
             // post-removal : [1,-,3,-,5,6,7]
             expect(await this.vault.totalAssets()).to.be.bignumber.equal("5");
@@ -251,17 +334,11 @@ contract("SimpleVault", (accounts) => {
             assert.equal(assetInfo2.tokenAddress, constants.ZERO_ADDRESS);
             assert.equal(assetInfo2.tokenId, "0");
             // add asset2. asset8 becomes asset2
-            await this.nft1.approve(this.vault.address, 2, {from: owner});
+            await this.nft1.approve(this.vault.address, 2, { from: owner });
             await this.vault.safeAddAsset(
-                [
-                    this.nft1.address
-                ],
-                [
-                    2
-                ],
-                [
-                    CATEGORY_1
-                ], { from: owner, gas: 2000000 });
+                [this.nft1.address],
+                [2],
+                [CATEGORY_1], { from: owner, gas: 2000000 });
             // pre-addition  : [1,-,3,-,5,6,7]
             // post-addition : [1,-,3,-,5,6,7,2]
             expect(await this.vault.totalAssets()).to.be.bignumber.equal("6");
@@ -273,83 +350,19 @@ contract("SimpleVault", (accounts) => {
             assert.equal(assetInfo8.tokenId, 2);
         });
 
-        it("works when called by owner", async () => {
-            expect(await this.vault.totalAssets()).to.be.bignumber.equal("7");
-            assert.equal(this.vault.address, await this.nft1.ownerOf(1));
-            assert.equal(this.vault.address, await this.nft1.ownerOf(2));
-            assert.equal(this.vault.address, await this.nft1.ownerOf(3));
-            assert.equal(this.vault.address, await this.nft1.ownerOf(4));
-            assert.equal(this.vault.address, await this.nft2.ownerOf(1));
-            assert.equal(this.vault.address, await this.nft2.ownerOf(2));
-            assert.equal(this.vault.address, await this.nft2.ownerOf(3));
-            // mass transfer
+        it("[fails] - when transfer already transferred asset", async () => {
+            await this.nft1.mintTo(owner);
+            await this.nft1.approve(this.vault.address, 1, { from: owner });
+            await this.vault.safeAddAsset(
+                [this.nft1.address],
+                [1],
+                [CATEGORY_1], { from: owner, gas: 2000000 });
+
             await this.vault.safeTransferAsset(
-                [
-                    0,1,2,3,
-                    4,5,6
-                ], { from: owner, gas: 2000000 });
-            expect(await this.vault.totalAssets()).to.be.bignumber.equal("0");
-            assert.equal(owner, await this.nft1.ownerOf(1));
-            assert.equal(owner, await this.nft1.ownerOf(2));
-            assert.equal(owner, await this.nft1.ownerOf(3));
-            assert.equal(owner, await this.nft1.ownerOf(4));
-            assert.equal(owner, await this.nft2.ownerOf(1));
-            assert.equal(owner, await this.nft2.ownerOf(2));
-            assert.equal(owner, await this.nft2.ownerOf(3));
-            // cannot mass transfer again
+                [0], { from: owner, gas: 2000000 });
             await expectRevert(
                 this.vault.safeTransferAsset(
-                    [
-                        0,1,2,3,
-                        4,5,6
-                    ], { from: owner, gas: 2000000 }),
-                "{safeTransferAsset} : 404, asset does not exist",
-            );
-        });
-
-        it("fails when called by non-owner", async () => {
-            await expectRevert(
-                this.vault.safeTransferAsset(
-                    [
-                        0,1,2,3,
-                        4,5,6
-                    ], { from: tester1, gas: 2000000 }),
-                "Ownable: caller is not the owner",
-            );
-            await expectRevert(
-                this.vault.safeTransferAsset(
-                    [
-                        0,1,2,3,
-                        4,5,6
-                    ], { from: tester2, gas: 2000000 }),
-                "Ownable: caller is not the owner",
-            );
-        });
-
-        it("fails when removing non-existent asset", async () => {
-            await expectRevert(
-                this.vault.safeTransferAsset(
-                    [
-                        7
-                    ], { from: owner, gas: 2000000 }),
-                "{safeTransferAsset} : 400, Invalid assetId",
-            );
-        });
-
-        it("fails when removing already removed asset", async () => {
-            // remove asset4. asset4 becomes null
-            await this.vault.safeTransferAsset(
-                [
-                    3
-                ], { from: owner, gas: 2000000 });
-            // pre-removal  : [1,2,3,4,5,6,7]
-            // post-removal : [1,2,3,-,5,6,7]
-            // fails when removing asset4 again
-            await expectRevert(
-                this.vault.safeTransferAsset(
-                    [
-                        3
-                    ], { from: owner, gas: 2000000 }),
+                    [0], { from: owner, gas: 2000000 }),
                 "{safeTransferAsset} : 404, asset does not exist",
             );
         });
@@ -361,15 +374,26 @@ contract("SimpleVault", (accounts) => {
             snapshotId = (await timeMachine.takeSnapshot())["result"];
         });
 
-        afterEach(async() => {
+        afterEach(async () => {
             await timeMachine.revertToSnapshot(snapshotId);
         });
 
-        it("works when called by owner", async () => {
+        it("[require] - caller needs to be the owner", async () => {
+            await expectRevert(
+                this.vault.lockVault({ from: tester1, gas: 50000 }),
+                "Ownable: caller is not the owner",
+            );
+        });
+
+        it("[require] - vault needs to be unlocked", async () => {
+            assert.equal(false, await this.vault.locked());
+        });
+
+        it("[success] - when called by owner", async () => {
             await this.vault.lockVault({ from: owner, gas: 50000 });
         });
 
-        it("fails when called more than once", async () => {
+        it("[fail] - when vault already locked", async () => {
             await this.vault.lockVault({ from: owner, gas: 50000 });
             await expectRevert(
                 this.vault.lockVault({ from: owner, gas: 50000 }),
@@ -377,96 +401,64 @@ contract("SimpleVault", (accounts) => {
             );
         });
 
-        it("fails when called by non-owner", async () => {
-            await expectRevert(
-                this.vault.lockVault({ from: tester1, gas: 50000 }),
-                "Ownable: caller is not the owner",
-            );
-        });
-
-        it("prevents addition of assets into vault", async () => {
+        it("[prevent] - when add assets after locking vault", async () => {
             // mint 4 TNFT1s to owner
             for (i = 0; i < 4; i++) {
-                await this.nft1.mintTo(tester1);
+                await this.nft1.mintTo(owner);
             }
             // mint 3 TNFT2s to owner
             for (i = 0; i < 3; i++) {
-                await this.nft2.mintTo(tester2);
+                await this.nft2.mintTo(owner);
             }
-            await this.nft1.transferFrom(tester1, owner, 1, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 2, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 3, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 4, {from: tester1});
-            await this.nft2.transferFrom(tester2, owner, 1, {from: tester2});
-            await this.nft2.transferFrom(tester2, owner, 2, {from: tester2});
-            await this.nft2.transferFrom(tester2, owner, 3, {from: tester2});
-            await this.nft1.approve(this.vault.address, 1, {from: owner});
-            await this.nft1.approve(this.vault.address, 2, {from: owner});
-            await this.nft1.approve(this.vault.address, 3, {from: owner});
-            await this.nft1.approve(this.vault.address, 4, {from: owner});
-            await this.nft2.approve(this.vault.address, 1, {from: owner});
-            await this.nft2.approve(this.vault.address, 2, {from: owner});
-            await this.nft2.approve(this.vault.address, 3, {from: owner});
-            await this.vault.safeAddAsset(
+            await this.nft1.approve(this.vault.address, 1, { from: owner });
+            await this.nft1.approve(this.vault.address, 2, { from: owner });
+            await this.nft1.approve(this.vault.address, 3, { from: owner });
+            await this.nft1.approve(this.vault.address, 4, { from: owner });
+            await this.nft2.approve(this.vault.address, 1, { from: owner });
+            await this.nft2.approve(this.vault.address, 2, { from: owner });
+            await this.nft2.approve(this.vault.address, 3, { from: owner });
+            await this.vault.lockVault({ from: owner, gas: 50000 });
+            await expectRevert(this.vault.safeAddAsset(
                 [
                     this.nft1.address, this.nft1.address, this.nft1.address,
                     this.nft2.address, this.nft2.address
                 ],
                 [
-                    1,2,3,
-                    1,2
+                    1, 2, 3, 4,
+                    1, 2, 3
                 ],
                 [
-                    CATEGORY_1, CATEGORY_1, CATEGORY_1,
-                    CATEGORY_2, CATEGORY_2
-                ], { from: owner, gas: 2000000 });
-            await this.vault.lockVault({ from: owner, gas: 50000 });
-            await expectRevert(
-                this.vault.safeAddAsset(
-                    [
-                        this.nft1.address, this.nft2.address
-                    ],
-                    [
-                        4,3
-                    ],
-                    [
-                        CATEGORY_1, CATEGORY_2
-                    ], { from: owner, gas: 2000000 }),
-                "{safeAddAsset} : locked",
+                    CATEGORY_1, CATEGORY_1, CATEGORY_1, CATEGORY_1,
+                    CATEGORY_2, CATEGORY_2, CATEGORY_2
+                ], { from: owner, gas: 2000000 }),
+                "{safeAddAsset} : locked"
             );
         });
 
-        it("prevents transfer of assets from vault", async () => {
+        it("[prevent] - when transfer assets after locking vault", async () => {
             // mint 4 TNFT1s to owner
             for (i = 0; i < 4; i++) {
-                await this.nft1.mintTo(tester1);
+                await this.nft1.mintTo(owner);
             }
             // mint 3 TNFT2s to owner
             for (i = 0; i < 3; i++) {
-                await this.nft2.mintTo(tester2);
+                await this.nft2.mintTo(owner);
             }
-            await this.nft1.transferFrom(tester1, owner, 1, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 2, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 3, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 4, {from: tester1});
-            await this.nft2.transferFrom(tester2, owner, 1, {from: tester2});
-            await this.nft2.transferFrom(tester2, owner, 2, {from: tester2});
-            await this.nft2.transferFrom(tester2, owner, 3, {from: tester2});
-            await this.nft1.approve(this.vault.address, 1, {from: owner});
-            await this.nft1.approve(this.vault.address, 2, {from: owner});
-            await this.nft1.approve(this.vault.address, 3, {from: owner});
-            await this.nft1.approve(this.vault.address, 4, {from: owner});
-            await this.nft2.approve(this.vault.address, 1, {from: owner});
-            await this.nft2.approve(this.vault.address, 2, {from: owner});
-            await this.nft2.approve(this.vault.address, 3, {from: owner});
+            await this.nft1.approve(this.vault.address, 1, { from: owner });
+            await this.nft1.approve(this.vault.address, 2, { from: owner });
+            await this.nft1.approve(this.vault.address, 3, { from: owner });
+            await this.nft1.approve(this.vault.address, 4, { from: owner });
+            await this.nft2.approve(this.vault.address, 1, { from: owner });
+            await this.nft2.approve(this.vault.address, 2, { from: owner });
+            await this.nft2.approve(this.vault.address, 3, { from: owner });
             await this.vault.safeAddAsset(
                 [
                     this.nft1.address, this.nft1.address, this.nft1.address, this.nft1.address,
                     this.nft2.address, this.nft2.address, this.nft2.address
                 ],
                 [
-                    1,2,3,4,
-                    1,2,3
+                    1, 2, 3, 4,
+                    1, 2, 3
                 ],
                 [
                     CATEGORY_1, CATEGORY_1, CATEGORY_1, CATEGORY_1,
@@ -481,26 +473,35 @@ contract("SimpleVault", (accounts) => {
                 "{safeTransferAsset} : locked",
             );
         });
-
     });
 
     describe("unlockVault", () => {
 
         beforeEach(async () => {
             snapshotId = (await timeMachine.takeSnapshot())["result"];
+            await this.vault.lockVault({ from: owner, gas: 50000 });
         });
 
-        afterEach(async() => {
+        afterEach(async () => {
             await timeMachine.revertToSnapshot(snapshotId);
         });
 
-        it("works when called by owner", async () => {
-            await this.vault.lockVault({ from: owner, gas: 50000 });
+        it("[require] - caller needs to be the owner", async () => {
+            await expectRevert(
+                this.vault.unlockVault({ from: tester1, gas: 50000 }),
+                "Ownable: caller is not the owner",
+            );
+        });
+
+        it("[require] - vault needs to be locked", async () => {
+            assert.equal(true, await this.vault.locked());
+        });
+
+        it("[success] - when called by owner", async () => {
             await this.vault.unlockVault({ from: owner, gas: 50000 });
         });
 
-        it("fails when called more than once", async () => {
-            await this.vault.lockVault({ from: owner, gas: 50000 });
+        it("[fail] - when vault already unlocked", async () => {
             await this.vault.unlockVault({ from: owner, gas: 50000 });
             await expectRevert(
                 this.vault.unlockVault({ from: owner, gas: 50000 }),
@@ -508,108 +509,39 @@ contract("SimpleVault", (accounts) => {
             );
         });
 
-        it("fails when called by non-owner", async () => {
-            await this.vault.lockVault({ from: owner, gas: 50000 });
-            await expectRevert(
-                this.vault.unlockVault({ from: tester1, gas: 50000 }),
-                "Ownable: caller is not the owner",
-            );
-        });
-
-        it("allows addition of assets into vault after unlock", async () => {
-            // mint 4 TNFT1s to owner
-            for (i = 0; i < 4; i++) {
-                await this.nft1.mintTo(tester1);
-            }
-            // mint 3 TNFT2s to owner
-            for (i = 0; i < 3; i++) {
-                await this.nft2.mintTo(tester2);
-            }
-            await this.nft1.transferFrom(tester1, owner, 1, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 2, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 3, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 4, {from: tester1});
-            await this.nft2.transferFrom(tester2, owner, 1, {from: tester2});
-            await this.nft2.transferFrom(tester2, owner, 2, {from: tester2});
-            await this.nft2.transferFrom(tester2, owner, 3, {from: tester2});
-            await this.nft1.approve(this.vault.address, 1, {from: owner});
-            await this.nft1.approve(this.vault.address, 2, {from: owner});
-            await this.nft1.approve(this.vault.address, 3, {from: owner});
-            await this.nft1.approve(this.vault.address, 4, {from: owner});
-            await this.nft2.approve(this.vault.address, 1, {from: owner});
-            await this.nft2.approve(this.vault.address, 2, {from: owner});
-            await this.nft2.approve(this.vault.address, 3, {from: owner});
-            await this.vault.safeAddAsset(
-                [
-                    this.nft1.address, this.nft1.address, this.nft1.address,
-                    this.nft2.address, this.nft2.address
-                ],
-                [
-                    1,2,3,
-                    1,2
-                ],
-                [
-                    CATEGORY_1, CATEGORY_1, CATEGORY_1,
-                    CATEGORY_2, CATEGORY_2
-                ], { from: owner, gas: 2000000 });
-            await this.vault.lockVault({ from: owner, gas: 50000 });
+        it("[allow] - when add/transfer assets after unlocking vault", async () => {
             await this.vault.unlockVault({ from: owner, gas: 50000 });
-            await this.vault.safeAddAsset(
-                [
-                    this.nft1.address, this.nft2.address
-                ],
-                [
-                    4,3
-                ],
-                [
-                    CATEGORY_1, CATEGORY_2
-                ], { from: owner, gas: 2000000 });
-        });
-
-        it("allows transfer of assets from vault after unlock", async () => {
             // mint 4 TNFT1s to owner
             for (i = 0; i < 4; i++) {
-                await this.nft1.mintTo(tester1);
+                await this.nft1.mintTo(owner);
             }
             // mint 3 TNFT2s to owner
             for (i = 0; i < 3; i++) {
-                await this.nft2.mintTo(tester2);
+                await this.nft2.mintTo(owner);
             }
-            await this.nft1.transferFrom(tester1, owner, 1, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 2, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 3, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 4, {from: tester1});
-            await this.nft2.transferFrom(tester2, owner, 1, {from: tester2});
-            await this.nft2.transferFrom(tester2, owner, 2, {from: tester2});
-            await this.nft2.transferFrom(tester2, owner, 3, {from: tester2});
-            await this.nft1.approve(this.vault.address, 1, {from: owner});
-            await this.nft1.approve(this.vault.address, 2, {from: owner});
-            await this.nft1.approve(this.vault.address, 3, {from: owner});
-            await this.nft1.approve(this.vault.address, 4, {from: owner});
-            await this.nft2.approve(this.vault.address, 1, {from: owner});
-            await this.nft2.approve(this.vault.address, 2, {from: owner});
-            await this.nft2.approve(this.vault.address, 3, {from: owner});
+            await this.nft1.approve(this.vault.address, 1, { from: owner });
+            await this.nft1.approve(this.vault.address, 2, { from: owner });
+            await this.nft1.approve(this.vault.address, 3, { from: owner });
+            await this.nft1.approve(this.vault.address, 4, { from: owner });
+            await this.nft2.approve(this.vault.address, 1, { from: owner });
+            await this.nft2.approve(this.vault.address, 2, { from: owner });
+            await this.nft2.approve(this.vault.address, 3, { from: owner });
             await this.vault.safeAddAsset(
                 [
                     this.nft1.address, this.nft1.address, this.nft1.address, this.nft1.address,
                     this.nft2.address, this.nft2.address, this.nft2.address
                 ],
                 [
-                    1,2,3,4,
-                    1,2,3
+                    1, 2, 3, 4,
+                    1, 2, 3
                 ],
                 [
                     CATEGORY_1, CATEGORY_1, CATEGORY_1, CATEGORY_1,
                     CATEGORY_2, CATEGORY_2, CATEGORY_2
                 ], { from: owner, gas: 2000000 });
-            await this.vault.lockVault({ from: owner, gas: 50000 });
-            await this.vault.unlockVault({ from: owner, gas: 50000 });
             await this.vault.safeTransferAsset(
-                [
-                    3
-                ], { from: owner, gas: 2000000 });
+                [3], { from: owner, gas: 2000000 });
         });
-
     });
 
     describe("transferOwnership", () => {
@@ -618,54 +550,53 @@ contract("SimpleVault", (accounts) => {
             snapshotId = (await timeMachine.takeSnapshot())["result"];
         });
 
-        afterEach(async() => {
+        afterEach(async () => {
             await timeMachine.revertToSnapshot(snapshotId);
         });
 
-        it("works when called by owner", async () => {
-            assert.equal(owner, await this.vault.owner());
-            await this.vault.transferOwnership(tester1, { from: owner, gas: 50000 });
-            assert.equal(tester1, await this.vault.owner());
-        });
-
-        it("fails when called by non-owner", async () => {
+        it("[require] - caller needs to be the owner", async () => {
             await expectRevert(
-                this.vault.transferOwnership(tester2, { from: tester1, gas: 50000 }),
+                this.vault.transferOwnership(tester2, { from: tester1, gas: 2000000 }),
                 "Ownable: caller is not the owner",
             );
         });
 
-        it("prevents addition / removal of assets after ownership transfer", async () => {
+        it("[revert] - when invalid new owner", async () => {
+            await expectRevert(
+                this.vault.transferOwnership(constants.ZERO_ADDRESS, { from: owner, gas: 2000000 }),
+                "{transferOwnership} : invalid new owner",
+            );
+        });
+
+        it("[success] - when called by owner", async () => {
+            await this.vault.transferOwnership(tester1, { from: owner, gas: 50000 });
+            assert.equal(tester1, await this.vault.owner());
+        });
+
+        it("[prevent] - add/transfer assets after ownership transfer", async () => {
             // mint 4 TNFT1s to owner
             for (i = 0; i < 4; i++) {
-                await this.nft1.mintTo(tester1);
+                await this.nft1.mintTo(owner);
             }
             // mint 3 TNFT2s to owner
             for (i = 0; i < 3; i++) {
-                await this.nft2.mintTo(tester2);
+                await this.nft2.mintTo(owner);
             }
-            await this.nft1.transferFrom(tester1, owner, 1, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 2, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 3, {from: tester1});
-            await this.nft1.transferFrom(tester1, owner, 4, {from: tester1});
-            await this.nft2.transferFrom(tester2, owner, 1, {from: tester2});
-            await this.nft2.transferFrom(tester2, owner, 2, {from: tester2});
-            await this.nft2.transferFrom(tester2, owner, 3, {from: tester2});
-            await this.nft1.approve(this.vault.address, 1, {from: owner});
-            await this.nft1.approve(this.vault.address, 2, {from: owner});
-            await this.nft1.approve(this.vault.address, 3, {from: owner});
-            await this.nft1.approve(this.vault.address, 4, {from: owner});
-            await this.nft2.approve(this.vault.address, 1, {from: owner});
-            await this.nft2.approve(this.vault.address, 2, {from: owner});
-            await this.nft2.approve(this.vault.address, 3, {from: owner});
+            await this.nft1.approve(this.vault.address, 1, { from: owner });
+            await this.nft1.approve(this.vault.address, 2, { from: owner });
+            await this.nft1.approve(this.vault.address, 3, { from: owner });
+            await this.nft1.approve(this.vault.address, 4, { from: owner });
+            await this.nft2.approve(this.vault.address, 1, { from: owner });
+            await this.nft2.approve(this.vault.address, 2, { from: owner });
+            await this.nft2.approve(this.vault.address, 3, { from: owner });
             await this.vault.safeAddAsset(
                 [
                     this.nft1.address, this.nft1.address, this.nft1.address,
                     this.nft2.address, this.nft2.address
                 ],
                 [
-                    1,2,3,
-                    1,2
+                    1, 2, 3,
+                    1, 2
                 ],
                 [
                     CATEGORY_1, CATEGORY_1, CATEGORY_1,
@@ -679,7 +610,7 @@ contract("SimpleVault", (accounts) => {
                         this.nft1.address, this.nft2.address
                     ],
                     [
-                        4,3
+                        4, 3
                     ],
                     [
                         CATEGORY_1, CATEGORY_2
@@ -695,7 +626,5 @@ contract("SimpleVault", (accounts) => {
                 "Ownable: caller is not the owner",
             );
         });
-
     });
-
 });
