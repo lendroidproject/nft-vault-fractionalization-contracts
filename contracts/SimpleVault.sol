@@ -95,11 +95,16 @@ contract SimpleVault is IVault, Ownable, ERC721Holder {
 
     // admin functions in case something goes wrong
     function escapeHatchERC721(address tokenAddress, uint256 tokenId) external override onlyOwner {
+        require(tokenAddress != address(0), "{escapeHatchERC721} : invalid tokenAddress");
+        require(IERC721(tokenAddress).ownerOf(tokenId) == address(this), "{escapeHatchERC721} : invalid tokenId");
         IERC721(tokenAddress).safeTransferFrom(address(this), owner(), tokenId);
     }
 
     function setDecentralandOperator(address registryAddress, address operatorAddress,
         uint256 assetId) external override onlyOwner {
+        require(registryAddress != address(0), "{setDecentralandOperator} : invalid registryAddress");
+        require(operatorAddress != address(0), "{setDecentralandOperator} : invalid operatorAddress");
+        require(assets.length > assetId, "{setDecentralandOperator} : 400, Invalid assetId");
         IDecentralandLandRegistry(registryAddress).setUpdateOperator(assetId, operatorAddress);
     }
 
