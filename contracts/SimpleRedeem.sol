@@ -26,9 +26,18 @@ contract SimpleRedeem is IRedeem {
     //// admin
     IERC20 public token2;
     uint256 public redeemToken2Amount;
+    address public buyoutAddress;
+
+    // solhint-disable-next-line func-visibility
+    constructor (address buyoutContractAddress) {
+        require(buyoutContractAddress.isContract(), "{constructor} : invalid buyoutContractAddress");
+        buyoutAddress = buyoutContractAddress;
+    }
 
     function enableRedeem(address token0Address, address token2Address,
             uint256 token2Amount) external override {
+        // validate sender
+        require(msg.sender == buyoutAddress, "{enableRedeem} : invalid sender");
         // validate status
         require(status == RedeemStatus.CREATED, "{enableRedeem} : redeem has already been enabled");
         // input validations

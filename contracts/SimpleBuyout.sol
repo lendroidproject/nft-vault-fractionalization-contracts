@@ -6,8 +6,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./heartbeat/Pacemaker.sol";
-import "./SimpleRedeem.sol";
 import "./IRedeem.sol";
 import "./IToken0.sol";
 import "./IVault.sol";
@@ -18,13 +18,13 @@ import "./IVault.sol";
     @notice Smart contract representing a NFT bundle buyout
     @dev Audit certificate : Pending
 */
-contract SimpleBuyout is Ownable, Pacemaker {
+contract SimpleBuyout is Ownable, Pacemaker, Pausable {
     using SafeERC20 for IERC20;
     using SafeERC20 for IToken0;
     using SafeMath for uint256;
     using Address for address;
 
-    enum BuyoutStatus { CREATED, ENABLED, ACTIVE, REVOKED, ENDED }
+    enum BuyoutStatus { ENABLED, ACTIVE, REVOKED, ENDED }
 
     BuyoutStatus public status;
     IToken0 public token0;
@@ -50,9 +50,8 @@ contract SimpleBuyout is Ownable, Pacemaker {
     event BuyoutRevoked(uint256 amount);
     event BuyoutEnded(address bidder, uint256 amount);
 
-    function enableBuyout(address token0Address, address token2Address, address vaultAddress,
-        uint256[4] memory uint256Values) external onlyOwner {
-        require(status == BuyoutStatus.CREATED, "{enableBuyout} : buyout has already been enabled");
+    // solhint-disable-next-line func-visibility
+    constructor(address token0Address, address token2Address, address vaultAddress, uint256[4] memory uint256Values) {
         // input validations
         require(token0Address.isContract(), "{enableBuyout} : invalid token0Address");
         require(token2Address.isContract(), "{enableBuyout} : invalid token2Address");
@@ -73,7 +72,26 @@ contract SimpleBuyout is Ownable, Pacemaker {
         status = BuyoutStatus.ENABLED;
     }
 
-    function placeBid(uint256 totalBidAmount, uint256 token2Amount) external {
+    function togglePause(bool pause) external onlyOwner {
+        if (pause) {
+            _pause();
+        } else {
+            _unpause();
+        }
+    }
+
+    function setRedemption(address redeemAddress) external onlyOwner {
+        require(address(redemption) == address(0), "{setRedemption} : redemption address has already been set");
+        redemption = IRedeem(redeemAddress);
+    }
+
+    function transferVaultOwnership(address newOwner) external onlyOwner whenPaused {
+        require(newOwner != address(0), "{transferVaultOwnership} : invalid newOwner");
+        // transfer ownership of Vault to newOwner
+        vault.transferOwnership(highestBidder);
+    }
+
+    function placeBid(uint256 totalBidAmount, uint256 token2Amount) external whenNotPaused {
         // verify buyout has not ended
         require(status != BuyoutStatus.ENDED, "{placeBid} : buyout has ended");
         // verify token0 and token2 amounts are sufficient to place bid
@@ -82,18 +100,18 @@ contract SimpleBuyout is Ownable, Pacemaker {
         require(token2.balanceOf(msg.sender) >= token2Amount, "{placeBid} : insufficient token2 balance");
         uint256 token0Amount = requiredToken0ToBid(totalBidAmount, token2Amount);
         require(token0.balanceOf(msg.sender) >= token0Amount, "{placeBid} : insufficient token0 balance");
-        // update epochs
+        // set startEpoch
+        epochs[0] = currentEpoch();
+        // update endEpoch
         if (status == BuyoutStatus.ACTIVE) {
             require(currentEpoch() <= epochs[1], "{placeBid} : buyout end epoch has been surpassed");
             epochs[1] = currentEpoch().add(epochs[3]);
         }
         // activate buyout process if applicable
         if ((status == BuyoutStatus.ENABLED) || (status == BuyoutStatus.REVOKED)) {
-            _activateBuyout();
+            status = BuyoutStatus.ACTIVE;
             epochs[1] = currentEpoch().add(epochs[2]);
         }
-        // set startEpoch
-        epochs[0] = currentEpoch();
         // return highest bid to previous bidder
         if (highestBidValues[0] > 0) {
             if (highestBidValues[1] > 0) {
@@ -115,7 +133,7 @@ contract SimpleBuyout is Ownable, Pacemaker {
         emit HighestBidIncreased(msg.sender, totalBidAmount);
     }
 
-    function stakeToken0ToStopBuyout(uint256 token0Amount) external {
+    function stakeToken0ToStopBuyout(uint256 token0Amount) external whenNotPaused {
         // verify buyout has not ended
         require((
             (status == BuyoutStatus.ACTIVE) && (currentEpoch() >= epochs[0]) && (currentEpoch() <= epochs[1])
@@ -125,25 +143,13 @@ contract SimpleBuyout is Ownable, Pacemaker {
             totalToken0Staked = updatedTotalToken0Staked;
         } else {
             totalToken0Staked = 0;
-            // reset bid parameters
-            if (highestBidValues[1] > 0) {
-                token0.safeTransfer(highestBidder, highestBidValues[1]);
-            }
-            if (highestBidValues[2] > 0) {
-                token2.safeTransfer(highestBidder, highestBidValues[2]);
-            }
             // increase startThreshold by 8% of last bid
             startThreshold = highestBidValues[2].mul(108).div(100);
-            // reset highestBidder
-            highestBidder = address(0);
-            // reset highestBidValues
-            highestBidValues[0] = 0;
-            highestBidValues[1] = 0;
-            highestBidValues[2] = 0;
             // reset endEpoch
             epochs[1] = 0;
             // set status
             status = BuyoutStatus.REVOKED;
+            _resetHighestBidDetails();
             emit BuyoutRevoked(updatedTotalToken0Staked);
         }
         token0Staked[msg.sender] = token0Staked[msg.sender].add(token0Amount);
@@ -160,7 +166,7 @@ contract SimpleBuyout is Ownable, Pacemaker {
         token0.safeTransfer(msg.sender, token0Amount);
     }
 
-    function endBuyout() external {
+    function endBuyout() external whenNotPaused {
         // solhint-disable-next-line not-rely-on-time
         require(currentEpoch() > epochs[1], "{endBuyout} : end epoch has not yet been reached");
         require(status != BuyoutStatus.ENDED, "{endBuyout} : buyout has already ended");
@@ -168,18 +174,10 @@ contract SimpleBuyout is Ownable, Pacemaker {
         // additional safety checks
         require(((highestBidValues[1] > 0) || (highestBidValues[2] > 0)),
             "{endBuyout} : highestBidder deposits cannot be 0");
+        require(address(redemption) != address(0), "{endBuyout} : redemption address has not yet been set");
         // set status
         status = BuyoutStatus.ENDED;
-        // deploy SimpleRedeem contract
-        bytes memory bytecode = type(SimpleRedeem).creationCode;
-        bytes32 salt = keccak256(abi.encodePacked(address(this), owner(),
-            block.timestamp));// solhint-disable-line not-rely-on-time
-        address redeemAddress;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            redeemAddress := create2(0, add(bytecode, 32), mload(bytecode), salt)
-        }
-        redemption = IRedeem(redeemAddress);
+        // enable SimpleRedeem contract
         redemption.enableRedeem(address(token0), address(token2), highestBidValues[2]);
         // burn token0Amount
         if (highestBidValues[1] > 0) {
@@ -187,12 +185,18 @@ contract SimpleBuyout is Ownable, Pacemaker {
         }
         // send token2Amount to redeem contract
         if (highestBidValues[2] > 0) {
-            token2.safeTransfer(redeemAddress, highestBidValues[2]);
+            token2.safeTransfer(address(redemption), highestBidValues[2]);
         }
         // transfer ownership of Vault to highestBidder
         vault.transferOwnership(highestBidder);
 
         emit BuyoutEnded(highestBidder, highestBidValues[0]);
+    }
+
+    function withdrawBid() external whenPaused {
+        require(highestBidder == msg.sender, "{withdrawBid} : sender is not highestBidder");
+        _resetHighestBidDetails();
+
     }
 
     function requiredToken0ToBid(uint256 totalBidAmount, uint256 token2Amount) public view returns (uint256) {
@@ -206,11 +210,21 @@ contract SimpleBuyout is Ownable, Pacemaker {
             ).div(totalBidAmount);
     }
 
-    function _activateBuyout() internal {
-        status = BuyoutStatus.ACTIVE;
-        // reset values
-        highestBidValues[0] = 0;
+    function _resetHighestBidDetails() internal {
+        uint256 token0Amount = highestBidValues[1];
+        uint256 token2Amount = highestBidValues[2];
+        if (token0Amount > 0) {
+            token0.safeTransfer(highestBidder, token0Amount);
+        }
+        if (token2Amount > 0) {
+            token2.safeTransfer(highestBidder, token2Amount);
+        }
+        // reset highestBidder
         highestBidder = address(0);
+        // reset highestBidValues
+        highestBidValues[0] = 0;
+        highestBidValues[1] = 0;
+        highestBidValues[2] = 0;
     }
 
 }
