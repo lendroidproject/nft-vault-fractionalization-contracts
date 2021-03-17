@@ -25,13 +25,6 @@ contract("SimpleRedeem", (accounts) => {
     const owner = accounts[0];
     const tester1 = accounts[1];
     const tester2 = accounts[2];
-    const tester3 = accounts[3];
-    const tester4 = accounts[4];
-    const tester5 = accounts[5];
-    const tester6 = accounts[6];
-    const tester7 = accounts[7];
-
-    this.currentTime = null;
 
     this.vault = null;
 
@@ -44,6 +37,8 @@ contract("SimpleRedeem", (accounts) => {
     this.totalBidAmount = null;
     this.token2Amount = null;
     this.token0Amount = null;
+
+    this.snapshotIds = [];
 
     before(async () => {
         this.vault = await Vault.deployed();
@@ -63,16 +58,6 @@ contract("SimpleRedeem", (accounts) => {
         await this.token0.transfer(tester1, web3.utils.toWei("1000000", "ether"), { from: owner, gas: 100000 });
         // owner sends 0.5M Token0 to tester2
         await this.token0.transfer(tester2, web3.utils.toWei("500000", "ether"), { from: owner, gas: 100000 });
-        // owner sends 0.5M Token0 to tester3
-        await this.token0.transfer(tester3, web3.utils.toWei("500000", "ether"), { from: owner, gas: 100000 });
-        // owner sends 0.5M Token0 to tester4
-        await this.token0.transfer(tester4, web3.utils.toWei("500000", "ether"), { from: owner, gas: 100000 });
-        // owner sends 0.5M Token0 to tester5
-        await this.token0.transfer(tester5, web3.utils.toWei("500000", "ether"), { from: owner, gas: 100000 });
-        // owner sends 0.5M Token0 to tester6
-        await this.token0.transfer(tester6, web3.utils.toWei("500000", "ether"), { from: owner, gas: 100000 });
-        // owner sends 0.5M Token0 to tester7
-        await this.token0.transfer(tester7, web3.utils.toWei("500000", "ether"), { from: owner, gas: 100000 });
         // Ownership of Token0 is transferred to Buyout contract
         await this.token0.transferOwnership(this.buyout.address, { from: owner, gas: 50000 });
         // buyout is enabled
@@ -97,14 +82,10 @@ contract("SimpleRedeem", (accounts) => {
         let endEpochValue = (await this.buyout.epochs(1)).toNumber();
         let epochDiff = endEpochValue > currentEpochValue ? endEpochValue - currentEpochValue : currentEpochValue;
         let endTimestamp = EPOCH_PERIOD * epochDiff;
-        await timeMachine.advanceTimeAndBlock(endTimestamp+EPOCH_PERIOD);
+        await timeMachine.advanceTimeAndBlock(endTimestamp + EPOCH_PERIOD);
         await this.buyout.endBuyout({ from: owner, gas: 2000000 });
         let redeemAddress = await this.buyout.redemption();
         this.redemption = new Redeem(redeemAddress);
-    });
-
-    beforeEach(async () => {
-        this.currentTime = await time.latest();
     });
 
     describe("enableRedeem", () => {
@@ -143,7 +124,7 @@ contract("SimpleRedeem", (accounts) => {
             );
         });
 
-        it("fails with invalid token2Address", async () => {
+        it("fails with zero token2 amount", async () => {
             let standaloneRedemption = await Redeem.new();
             await expectRevert(
                 standaloneRedemption.enableRedeem(
@@ -175,18 +156,18 @@ contract("SimpleRedeem", (accounts) => {
     describe("redeem", () => {
         const redeemToken0Amount = web3.utils.toWei("500000", "ether");
 
-        beforeEach(async () => {
-            snapshotId = (await timeMachine.takeSnapshot())["result"];
+        before(async () => {
+            this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
 
             // tester2 approves 0.5M Token0 to redeem contract
             await this.token0.approve(this.redemption.address, redeemToken0Amount, { from: tester2, gas: 200000 });
         });
 
-        afterEach(async() => {
-            await timeMachine.revertToSnapshot(snapshotId);
+        after(async () => {
+            await timeMachine.revertToSnapshot(this.snapshotIds.pop());
         });
 
-        it("fails if status is not ENABLED", async() => {
+        it("fails if status is not ENABLED", async () => {
             let standaloneRedemption = await Redeem.new();
             await expectRevert(
                 standaloneRedemption.redeem(redeemToken0Amount, { from: tester2, gas: 200000 }),
@@ -194,7 +175,7 @@ contract("SimpleRedeem", (accounts) => {
             );
         });
 
-        it("fails with invalid token0 amount (insufficient)", async() => {
+        it("fails with invalid token0 amount (insufficient)", async () => {
             const invalidToken0Amount = web3.utils.toWei("1000000", "ether");
             await expectRevert(
                 this.redemption.redeem(
@@ -205,7 +186,7 @@ contract("SimpleRedeem", (accounts) => {
             );
         });
 
-        it("fails with invalid token0 amount (zero)", async() => {
+        it("fails with invalid token0 amount (zero)", async () => {
             const zeroToken0Amount = web3.utils.toWei("0", "ether");
             await expectRevert(
                 this.redemption.redeem(
