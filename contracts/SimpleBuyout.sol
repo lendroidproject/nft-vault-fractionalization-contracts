@@ -38,11 +38,14 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
     IRedeem public redemption;
     //// governance
     uint256 public stopThresholdPercent;
-    uint256 public totalToken0Staked;
+    uint256 public currentBidToken0Staked;
     mapping (address => uint256) public token0Staked;
     //// end user
     address public highestBidder;
     uint256[3] public highestBidValues;// [highestBid, highestToken0Bid, highestToken2Bid]
+    //// bid and veto count
+    uint256 public currentBidId;
+    mapping (address => uint256) public lastVetoedBidId;
 
     // Events that will be emitted on changes.
     event HighestBidIncreased(address bidder, uint256 amount);
@@ -97,11 +100,14 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         // verify token0 and token2 amounts are sufficient to place bid
         require(totalBidAmount > startThreshold, "{placeBid} : totalBidAmount does not meet minimum threshold");
         require(totalBidAmount > highestBidValues[0], "{placeBid} : there already is a higher bid");
-        require(token2.balanceOf(msg.sender) >= token2Amount, "{placeBid} : insufficient token2 balance");
         uint256 token0Amount = requiredToken0ToBid(totalBidAmount, token2Amount);
-        require(token0.balanceOf(msg.sender) >= token0Amount, "{placeBid} : insufficient token0 balance");
+        require(token0Amount >= token0.totalSupply().mul(105).div(100),
+            "{placeBid} : token0Amount should be at least 5% of token0 totalSupply");
         // set startEpoch
         epochs[0] = currentEpoch();
+        // increment bid number and reset veto count
+        currentBidId = currentBidId.add(1);
+        currentBidToken0Staked = 0;
         // update endEpoch
         if (status == BuyoutStatus.ACTIVE) {
             require(currentEpoch() <= epochs[1], "{placeBid} : buyout end epoch has been surpassed");
@@ -133,36 +139,24 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         emit HighestBidIncreased(msg.sender, totalBidAmount);
     }
 
-    function stakeToken0ToStopBuyout(uint256 token0Amount) external whenNotPaused {
-        // verify buyout has not ended
-        require((
-            (status == BuyoutStatus.ACTIVE) && (currentEpoch() >= epochs[0]) && (currentEpoch() <= epochs[1])
-        ), "{stakeToken0ToStopBuyout} : buyout is not active");
-        uint256 updatedTotalToken0Staked = totalToken0Staked.add(token0Amount);
-        if (updatedTotalToken0Staked < stopThresholdPercent.mul(token0.totalSupply().div(100))) {
-            totalToken0Staked = updatedTotalToken0Staked;
-        } else {
-            totalToken0Staked = 0;
-            // increase startThreshold by 8% of last bid
-            startThreshold = highestBidValues[2].mul(108).div(100);
-            // reset endEpoch
-            epochs[1] = 0;
-            // set status
-            status = BuyoutStatus.REVOKED;
-            _resetHighestBidDetails();
-            emit BuyoutRevoked(updatedTotalToken0Staked);
-        }
+    function veto(uint256 token0Amount) external whenNotPaused {
+        _veto(msg.sender, token0Amount);
         token0Staked[msg.sender] = token0Staked[msg.sender].add(token0Amount);
         token0.safeTransferFrom(msg.sender, address(this), token0Amount);
     }
 
-    function withdrawStakedToken0() external {
+    function extendVeto() external whenNotPaused {
         uint256 token0Amount = token0Staked[msg.sender];
-        require(token0Amount > 0, "{withdrawStakedToken0} : no staked token0Amount");
-        if (totalToken0Staked > 0) {
-            totalToken0Staked = totalToken0Staked.sub(token0Amount);
-        }
-        token0Staked[msg.sender] = 0;
+        require(token0Amount > 0, "{extendVeto} : no staked token0Amount");
+        require(lastVetoedBidId[msg.sender] != currentBidId, "{extendVeto} : already vetoed");
+        _veto(msg.sender, token0Amount);
+    }
+
+    function withdrawStakedToken0(uint256 token0Amount) external {
+        require(token0Amount > 0, "{withdrawStakedToken0} : token0Amount cannot be zero");
+        require(token0Staked[msg.sender] > token0Amount,
+            "{withdrawStakedToken0} : token0Amount cannot exceed staked amount");
+        token0Staked[msg.sender] = token0Staked[msg.sender].sub(token0Amount);
         token0.safeTransfer(msg.sender, token0Amount);
     }
 
@@ -225,6 +219,28 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         highestBidValues[0] = 0;
         highestBidValues[1] = 0;
         highestBidValues[2] = 0;
+    }
+
+    function _veto(address sender, uint256 token0Amount) internal {
+        // verify buyout has not ended
+        require((
+            (status == BuyoutStatus.ACTIVE) && (currentEpoch() >= epochs[0]) && (currentEpoch() <= epochs[1])
+        ), "{_veto} : buyout is not active");
+        lastVetoedBidId[sender] = currentBidId;
+        uint256 updatedCurrentBidToken0Staked = currentBidToken0Staked.add(token0Amount);
+        if (updatedCurrentBidToken0Staked < stopThresholdPercent.mul(token0.totalSupply().div(100))) {
+            currentBidToken0Staked = updatedCurrentBidToken0Staked;
+        } else {
+            currentBidToken0Staked = 0;
+            // increase startThreshold by 8% of last bid
+            startThreshold = highestBidValues[2].mul(108).div(100);
+            // reset endEpoch
+            epochs[1] = 0;
+            // set status
+            status = BuyoutStatus.REVOKED;
+            _resetHighestBidDetails();
+            emit BuyoutRevoked(updatedCurrentBidToken0Staked);
+        }
     }
 
 }
