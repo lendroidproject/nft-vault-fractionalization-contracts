@@ -84,6 +84,7 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
     }
 
     function setRedemption(address redeemAddress) external onlyOwner {
+        require(redeemAddress != address(0), "{setRedemption} : invalid redeemAddress");
         require(address(redemption) == address(0), "{setRedemption} : redemption address has already been set");
         redemption = IRedeem(redeemAddress);
     }
@@ -99,9 +100,11 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         require(status != BuyoutStatus.ENDED, "{placeBid} : buyout has ended");
         // verify token0 and token2 amounts are sufficient to place bid
         require(totalBidAmount > startThreshold, "{placeBid} : totalBidAmount does not meet minimum threshold");
+        require(token2.balanceOf(msg.sender) >= token2Amount, "{placeBid} : insufficient token2 balance");
         require(totalBidAmount > highestBidValues[0], "{placeBid} : there already is a higher bid");
         uint256 token0Amount = requiredToken0ToBid(totalBidAmount, token2Amount);
-        require(token0Amount >= token0.totalSupply().mul(105).div(100),
+        require(token0.balanceOf(msg.sender) >= token0Amount, "{placeBid} : insufficient token0 balance");
+        require(token0Amount >= token0.totalSupply().mul(5).div(100),
             "{placeBid} : token0Amount should be at least 5% of token0 totalSupply");
         // set startEpoch
         epochs[0] = currentEpoch();

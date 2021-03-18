@@ -1,7 +1,8 @@
 const timeMachine = require("ganache-time-traveler");
 const currentEpoch = require("./helpers/currentEpoch");
 
-const { time, constants, ether, expectRevert } = require("@openzeppelin/test-helpers");
+// const { time, constants, ether, expectRevert } = require("@openzeppelin/test-helpers");
+const { time, ether, expectRevert } = require("@openzeppelin/test-helpers");
 
 const { expect } = require("chai");
 
@@ -14,11 +15,6 @@ const Buyout = artifacts.require("SimpleBuyout");
 const Redeem = artifacts.require("SimpleRedeem");
 
 const EPOCH_PERIOD = 28800;// 8 hours = 60 * 60 * 8 seconds
-
-const BUYOUT_START_THRESHOLD = 10000000;// 10 million worth of Token2
-const BUYOUT_STOP_THRESHOLD_PERCENTAGE = 25;// Buyout stops if 25% of Token0 are staked
-const BUYOUT_DURATION_IN_EPOCHS = 42;
-const BID_INTERVAL_IN_EPOCHS = 9;
 
 contract("SimpleRedeem", (accounts) => {
 
@@ -60,15 +56,6 @@ contract("SimpleRedeem", (accounts) => {
         await this.token0.transfer(tester2, web3.utils.toWei("500000", "ether"), { from: owner, gas: 100000 });
         // Ownership of Token0 is transferred to Buyout contract
         await this.token0.transferOwnership(this.buyout.address, { from: owner, gas: 50000 });
-        // buyout is enabled
-        await this.buyout.enableBuyout(
-            this.token0.address, this.token2.address, this.vault.address,
-            [
-                web3.utils.toWei(BUYOUT_START_THRESHOLD.toString(), "ether"),
-                BUYOUT_DURATION_IN_EPOCHS,
-                BID_INTERVAL_IN_EPOCHS,
-                BUYOUT_STOP_THRESHOLD_PERCENTAGE
-            ], { from: owner, gas: 2000000 });
         // owner mints 10.8M token2 to tester1
         await this.token2.mint(tester1, this.token2Amount, { from: owner, gas: 100000 });
         // tester1 approves 10.8M token2 to buyout contract
@@ -78,80 +65,77 @@ contract("SimpleRedeem", (accounts) => {
         // tester1 places a bid
         await this.buyout.placeBid(this.totalBidAmount, this.token2Amount, { from: tester1, gas: 300000 });
         // time travel to end epoch
+        this.redemption = await new Redeem(this.buyout.address);
+        await this.buyout.setRedemption(this.redemption.address);
         let currentEpochValue = currentEpoch(await time.latest());
         let endEpochValue = (await this.buyout.epochs(1)).toNumber();
         let epochDiff = endEpochValue > currentEpochValue ? endEpochValue - currentEpochValue : currentEpochValue;
         let endTimestamp = EPOCH_PERIOD * epochDiff;
         await timeMachine.advanceTimeAndBlock(endTimestamp + EPOCH_PERIOD);
         await this.buyout.endBuyout({ from: owner, gas: 2000000 });
-        let redeemAddress = await this.buyout.redemption();
-        this.redemption = new Redeem(redeemAddress);
     });
 
-    describe("enableRedeem", () => {
-        const redeemToken0Amount = web3.utils.toWei("500000", "ether");
-        const redeemToken2Amount = web3.utils.toWei("600000", "ether");
+    // describe("enableRedeem", () => {
+    //     const redeemToken0Amount = web3.utils.toWei("500000", "ether");
+    //     const redeemToken2Amount = web3.utils.toWei("600000", "ether");
 
-        it("fails with invalid token0Address", async () => {
-            let standaloneRedemption = await Redeem.new();
-            await expectRevert(
-                standaloneRedemption.enableRedeem(
-                    constants.ZERO_ADDRESS, this.token2.address, redeemToken2Amount, { from: owner, gas: 2000000 }
-                ),
-                "{enableRedeem} : invalid token0Address"
-            );
-            await expectRevert(
-                standaloneRedemption.enableRedeem(
-                    tester1, this.token2.address, redeemToken2Amount, { from: owner, gas: 2000000 }
-                ),
-                "{enableRedeem} : invalid token0Address"
-            );
-        });
+    //     it("fails with invalid token0Address", async () => {
+    //         await expectRevert(
+    //             this.redemption.enableRedeem(
+    //                 constants.ZERO_ADDRESS, this.token2.address, redeemToken2Amount, { from: owner, gas: 2000000 }
+    //             ),
+    //             "{enableRedeem} : invalid token0Address"
+    //         );
+    //         await expectRevert(
+    //             this.redemption.enableRedeem(
+    //                 tester1, this.token2.address, redeemToken2Amount, { from: owner, gas: 2000000 }
+    //             ),
+    //             "{enableRedeem} : invalid token0Address"
+    //         );
+    //     });
 
-        it("fails with invalid token2Address", async () => {
-            let standaloneRedemption = await Redeem.new();
-            await expectRevert(
-                standaloneRedemption.enableRedeem(
-                    this.token0.address, constants.ZERO_ADDRESS, redeemToken2Amount, { from: owner, gas: 2000000 }
-                ),
-                "{enableRedeem} : invalid token2Address"
-            );
-            await expectRevert(
-                standaloneRedemption.enableRedeem(
-                    this.token0.address, tester1, redeemToken2Amount, { from: owner, gas: 2000000 }
-                ),
-                "{enableRedeem} : invalid token2Address"
-            );
-        });
+    //     it("fails with invalid token2Address", async () => {
+    //         await expectRevert(
+    //             this.redemption.enableRedeem(
+    //                 this.token0.address, constants.ZERO_ADDRESS, redeemToken2Amount, { from: owner, gas: 2000000 }
+    //             ),
+    //             "{enableRedeem} : invalid token2Address"
+    //         );
+    //         await expectRevert(
+    //             this.redemption.enableRedeem(
+    //                 this.token0.address, tester1, redeemToken2Amount, { from: owner, gas: 2000000 }
+    //             ),
+    //             "{enableRedeem} : invalid token2Address"
+    //         );
+    //     });
 
-        it("fails with zero token2 amount", async () => {
-            let standaloneRedemption = await Redeem.new();
-            await expectRevert(
-                standaloneRedemption.enableRedeem(
-                    this.token0.address, this.token2.address, 0, { from: owner, gas: 2000000 }
-                ),
-                "{enableRedeem} : token2Amount cannot be zero"
-            );
-        });
+    //     it("fails with zero token2 amount", async () => {
+    //         await expectRevert(
+    //             this.redemption.enableRedeem(
+    //                 this.token0.address, this.token2.address, 0, { from: owner, gas: 2000000 }
+    //             ),
+    //             "{enableRedeem} : token2Amount cannot be zero"
+    //         );
+    //     });
 
-        it("deploys with correct parameters", async () => {
-            assert.equal(1, await this.redemption.status.call());
-            assert.equal(this.token0.address, await this.redemption.token0.call());
-            assert.equal(this.token2.address, await this.redemption.token2.call());
-            assert.equal(this.token2Amount, await this.redemption.redeemToken2Amount.call());
-            assert.equal(redeemToken2Amount, await this.redemption.token2AmountRedeemable(redeemToken0Amount));
-        });
+    //     it("deploys with correct parameters", async () => {
+    //         assert.equal(1, await this.redemption.status.call());
+    //         assert.equal(this.token0.address, await this.redemption.token0.call());
+    //         assert.equal(this.token2.address, await this.redemption.token2.call());
+    //         assert.equal(this.token2Amount, await this.redemption.redeemToken2Amount.call());
+    //         assert.equal(redeemToken2Amount, await this.redemption.token2AmountRedeemable(redeemToken0Amount));
+    //     });
 
-        it("cannot be called twice", async () => {
-            await expectRevert(
-                this.redemption.enableRedeem(
-                    this.token0.address, this.token2.address, this.token2Amount,
-                    { from: tester1, gas: 2000000 }),
-                "{enableRedeem} : redeem has already been enabled",
-            );
-        });
+    //     it("cannot be called twice", async () => {
+    //         await expectRevert(
+    //             this.redemption.enableRedeem(
+    //                 this.token0.address, this.token2.address, this.token2Amount,
+    //                 { from: tester1, gas: 2000000 }),
+    //             "{enableRedeem} : redeem has already been enabled",
+    //         );
+    //     });
 
-    });
+    // });
 
     describe("redeem", () => {
         const redeemToken0Amount = web3.utils.toWei("500000", "ether");
