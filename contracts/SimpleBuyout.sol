@@ -86,7 +86,7 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
     function transferVaultOwnership(address newOwner) external onlyOwner whenPaused {
         require(newOwner != address(0), "{transferVaultOwnership} : invalid newOwner");
         // transfer ownership of Vault to newOwner
-        vault.transferOwnership(highestBidder);
+        vault.transferOwnership(newOwner);
     }
 
     function placeBid(uint256 totalBidAmount, uint256 token2Amount) external whenNotPaused {
