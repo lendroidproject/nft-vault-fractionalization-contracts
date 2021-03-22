@@ -8,7 +8,6 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./heartbeat/Pacemaker.sol";
-import "./IRedeem.sol";
 import "./IToken0.sol";
 import "./IVault.sol";
 
