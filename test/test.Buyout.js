@@ -114,22 +114,16 @@ contract("SimpleBuyout", (accounts) => {
 
     describe("placeBid", () => {
 
-        beforeEach(async () => {
-            snapshotId = (await timeMachine.takeSnapshot())["result"];
+        before(async () => {
+            this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
         });
 
-        afterEach(async() => {
-            await timeMachine.revertToSnapshot(snapshotId);
+        after(async () => {
+            await timeMachine.revertToSnapshot(this.snapshotIds.pop());
         });
 
-        it("fails when contract is paused", async () => {
-            await this.buyout.togglePause(true, { from: owner, gas: 2000000 });
-            const totalBidMinimum = web3.utils.toWei("9900000", "ether");// 9.9M worth of token2
-            const token2Amount = web3.utils.toWei("10800000", "ether");// 10.8M token2
-            await expectRevert(
-                this.buyout.placeBid(totalBidMinimum, token2Amount, { from: tester2, gas: 300000 }),
-                "Pausable: paused",
-            );
+        it("[require] - contract is not paused", async () => {
+            assert.equal(await this.buyout.paused(), false);
         });
 
         it("fails with totalBidAmount < minimum threshold", async () => {
@@ -180,7 +174,6 @@ contract("SimpleBuyout", (accounts) => {
         });
 
         it("success when inputs are correct", async () => {
-            // this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
             const totalBidAmount = web3.utils.toWei("12000000", "ether");// 12M worth of token2
             const token2Amount = web3.utils.toWei("10800000", "ether");// 10.8M token2
             const token0Amount = web3.utils.toWei("1000000", "ether");// 1M token0
@@ -196,12 +189,6 @@ contract("SimpleBuyout", (accounts) => {
             expect(await this.token0.balanceOf(this.buyout.address)).to.be.bignumber.equal("0");
             expect(await this.token2.balanceOf(this.buyout.address)).to.be.bignumber.equal("0");
             // tester1 places a bid
-            // owner mints 10.8M token2 to tester1
-            await this.token2.mint(tester1, token2Amount, { from: owner, gas: 100000 });
-            // tester1 approves 10.8M token2 to buyout contract
-            await this.token2.approve(this.buyout.address, token2Amount, { from: tester1, gas: 100000 });
-            // tester1 approves 1M Token0 to buyout contract
-            await this.token0.approve(this.buyout.address, token0Amount, { from: tester1, gas: 100000 });
             await this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester1, gas: 300000 });
             // validate state post-bid
             expect(await this.buyout.epochs(0)).to.be.bignumber.equal(currentEpoch(await time.latest()).toString());
@@ -214,36 +201,15 @@ contract("SimpleBuyout", (accounts) => {
             expect(await this.token2.balanceOf(this.buyout.address)).to.be.bignumber.equal(token2Amount.toString());
             expect(await this.token0.balanceOf(tester1)).to.be.bignumber.equal("0");
             expect(await this.token2.balanceOf(tester1)).to.be.bignumber.equal("0");
-
-            // await timeMachine.revertToSnapshot(this.snapshotIds.pop());
         });
 
         it("fails with totalBidAmount < previous bid", async () => {
-            let totalBidAmount = web3.utils.toWei("12000000", "ether");// 12M worth of token2
-            let token2Amount = web3.utils.toWei("10800000", "ether");// 10.8M token2
-            let token0Amount = web3.utils.toWei("1000000", "ether");// 1M token0
-            // owner mints 10.8M token2 to tester1
-            await this.token2.mint(tester1, token2Amount, { from: owner, gas: 100000 });
-            // tester1 approves 10.8M token2 to buyout contract
-            await this.token2.approve(this.buyout.address, token2Amount, { from: tester1, gas: 100000 });
-            // tester1 approves 1.2M Token0 to buyout contract
-            await this.token0.approve(this.buyout.address, token0Amount, { from: tester1, gas: 100000 });
-            // tester1 places a bid
-            await this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester1, gas: 300000 });
-            // tester3 sends 0.5M Token0 to tester2
-            await this.token0.transfer(tester2, web3.utils.toWei("500000", "ether"), { from: tester3, gas: 100000 });
-            // tester4 sends 0.5M Token0 to tester2
-            await this.token0.transfer(tester2, web3.utils.toWei("500000", "ether"), { from: tester4, gas: 100000 });
-            // tester5 sends 0.5M Token0 to tester2
-            await this.token0.transfer(tester2, web3.utils.toWei("500000", "ether"), { from: tester5, gas: 100000 });
-            // tester6 sends 0.5M Token0 to tester2
-            await this.token0.transfer(tester2, web3.utils.toWei("500000", "ether"), { from: tester6, gas: 100000 });
-            // tester7 sends 0.5M Token0 to tester2
-            await this.token0.transfer(tester2, web3.utils.toWei("500000", "ether"), { from: tester7, gas: 100000 });
+            // tester3 sends 2.5M Token0 to tester2
+            await this.token0.transfer(tester2, web3.utils.toWei("2500000", "ether"), { from: tester3, gas: 100000 });
             //// tester2 decides to outbid tester1
-            totalBidAmount = web3.utils.toWei("11000000", "ether");// 11M worth of token2
-            token2Amount = web3.utils.toWei("9900000", "ether");// 15M token2
-            token0Amount = web3.utils.toWei("1000000", "ether");// 2.5M token0
+            const totalBidAmount = web3.utils.toWei("11000000", "ether");// 11M worth of token2
+            const token2Amount = web3.utils.toWei("9900000", "ether");// 15M token2
+            const token0Amount = web3.utils.toWei("1000000", "ether");// 2.5M token0
             expect(await this.buyout.requiredToken0ToBid(totalBidAmount, token2Amount)).to.be.bignumber.equal(token0Amount.toString());
             // owner mints 15M token2 to tester2
             await this.token2.mint(tester2, token2Amount, { from: owner, gas: 100000 });
@@ -258,134 +224,54 @@ contract("SimpleBuyout", (accounts) => {
             );
         });
 
-        it("fails if endBuyout() has already been called", async () => {
-            // this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
-            let totalBidAmount = web3.utils.toWei("12000000", "ether");// 12M worth of token2
-            let token2Amount = web3.utils.toWei("10800000", "ether");// 10.8M token2
-            let token0Amount = web3.utils.toWei("1000000", "ether");// 1M token0
-            // owner mints 10.8M token2 to tester1
-            await this.token2.mint(tester1, token2Amount, { from: owner, gas: 100000 });
-            // tester1 approves 10.8M token2 to buyout contract
-            await this.token2.approve(this.buyout.address, token2Amount, { from: tester1, gas: 100000 });
-            // tester1 approves 1.2M Token0 to buyout contract
-            await this.token0.approve(this.buyout.address, token0Amount, { from: tester1, gas: 100000 });
-            // tester1 places a bid
-            await this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester1, gas: 300000 });
-            // time travel to end epoch
-            const currentEpochValue = currentEpoch(await time.latest());
-            const endEpochValue = (await this.buyout.epochs(1)).toNumber();
-            const epochDiff = endEpochValue > currentEpochValue ? endEpochValue - currentEpochValue : currentEpochValue;
-            const endTimestamp = EPOCH_PERIOD * epochDiff;
-            await timeMachine.advanceTimeAndBlock(endTimestamp + EPOCH_PERIOD);
-            // buyout is ended
-            await this.buyout.endBuyout({ from: owner, gas: 100000 });
+        it("fails if expiry has been reached or buyout ended", async () => {
             //// tester2 decides to outbid tester1
-            totalBidAmount = web3.utils.toWei("20000000", "ether");// 20M worth of token2
-            token2Amount = web3.utils.toWei("15000000", "ether");// 15M token2
-            token0Amount = web3.utils.toWei("2500000", "ether");// 2.5M token0
+            const totalBidAmount = web3.utils.toWei("20000000", "ether");// 20M worth of token2
+            const token2Amount = web3.utils.toWei("15000000", "ether");// 15M token2
+            const token0Amount = web3.utils.toWei("2500000", "ether");// 2.5M token0
             // owner mints 15M token2 to tester2
             await this.token2.mint(tester2, token2Amount, { from: owner, gas: 100000 });
             // tester2 approves 15M token2 to buyout contract
             await this.token2.approve(this.buyout.address, token2Amount, { from: tester2, gas: 100000 });
             // tester2 approves 2.5M Token0 to buyout contract
             await this.token0.approve(this.buyout.address, token0Amount, { from: tester2, gas: 100000 });
-            // tester2 places a bid
-            await expectRevert(
-                this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester2, gas: 300000 }),
-                "{placeBid} : buyout has ended",
-            );
 
-            // await timeMachine.revertToSnapshot(this.snapshotIds.pop());
-        });
+            this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
 
-        it("fails if buyout expiry has been reached", async () => {
-            // this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
-            let totalBidAmount = web3.utils.toWei("12000000", "ether");// 12M worth of token2
-            let token2Amount = web3.utils.toWei("10800000", "ether");// 10.8M token2
-            let token0Amount = web3.utils.toWei("1000000", "ether");// 1M token0
-            // owner mints 10.8M token2 to tester1
-            await this.token2.mint(tester1, token2Amount, { from: owner, gas: 100000 });
-            // tester1 approves 10.8M token2 to buyout contract
-            await this.token2.approve(this.buyout.address, token2Amount, { from: tester1, gas: 100000 });
-            // tester1 approves 1.2M Token0 to buyout contract
-            await this.token0.approve(this.buyout.address, token0Amount, { from: tester1, gas: 100000 });
-            // tester1 places a bid
-            await this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester1, gas: 300000 });
             // time travel to end epoch
             const currentEpochValue = currentEpoch(await time.latest());
             const endEpochValue = (await this.buyout.epochs(1)).toNumber();
             const epochDiff = endEpochValue > currentEpochValue ? endEpochValue - currentEpochValue : currentEpochValue;
             const endTimestamp = EPOCH_PERIOD * epochDiff;
             await timeMachine.advanceTimeAndBlock(endTimestamp + EPOCH_PERIOD);
-            //// tester3 decides to outbid tester1
-            totalBidAmount = web3.utils.toWei("20000000", "ether");// 20M worth of token2
-            token2Amount = web3.utils.toWei("15000000", "ether");// 15M token2
-            token0Amount = web3.utils.toWei("2500000", "ether");// 2.5M token0
-            // owner mints 15M token2 to tester3
-            await this.token2.mint(tester3, token2Amount, { from: owner, gas: 100000 });
-            // tester3 approves 15M token2 to buyout contract
-            await this.token2.approve(this.buyout.address, token2Amount, { from: tester3, gas: 100000 });
-            // tester3 approves 2.5M Token0 to buyout contract
-            await this.token0.approve(this.buyout.address, token0Amount, { from: tester3, gas: 100000 });
-            // tester3 places a bid
+
+            // tester2 places a bid
             await expectRevert(
-                this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester3, gas: 300000 }),
+                this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester2, gas: 300000 }),
                 "{placeBid} : buyout end epoch has been surpassed",
             );
+            // buyout is ended
+            await this.buyout.endBuyout({ from: owner, gas: 100000 });
+            // tester2 places a bid
+            await expectRevert(
+                this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester2, gas: 300000 }),
+                "{placeBid} : buyout has ended",
+            );
 
-            // await timeMachine.revertToSnapshot(this.snapshotIds.pop());
+            await timeMachine.revertToSnapshot(this.snapshotIds.pop());
         });
 
         it("updates storage correctly when bids are placed", async () => {
-            let totalBidAmount = web3.utils.toWei("12000000", "ether");// 12M worth of token2
-            let token2Amount = web3.utils.toWei("10800000", "ether");// 10.8M token2
-            let token0Amount = web3.utils.toWei("1000000", "ether");// 1M token0
+            const totalBidAmount = web3.utils.toWei("20000000", "ether");// 20M worth of token2
+            const token2Amount = web3.utils.toWei("15000000", "ether");// 15M token2
+            const token0Amount = web3.utils.toWei("2500000", "ether");// 2.5M token0
             expect(await this.buyout.requiredToken0ToBid(totalBidAmount, token2Amount)).to.be.bignumber.equal(token0Amount.toString());
-            // owner mints 10.8M token2 to tester1
-            await this.token2.mint(tester1, token2Amount, { from: owner, gas: 100000 });
-            // tester1 approves 10.8M token2 to buyout contract
-            await this.token2.approve(this.buyout.address, token2Amount, { from: tester1, gas: 100000 });
-            // tester1 approves 1.2M Token0 to buyout contract
-            await this.token0.approve(this.buyout.address, token0Amount, { from: tester1, gas: 100000 });
-            // validate state pre-bid
-            expect(await this.buyout.epochs(0)).to.be.bignumber.equal("0");
-            expect(await this.buyout.epochs(1)).to.be.bignumber.equal("0");
-            expect(await this.buyout.highestBidder()).equal(constants.ZERO_ADDRESS);
-            expect(await this.buyout.highestBidValues(0)).to.be.bignumber.equal("0");
-            expect(await this.buyout.highestBidValues(1)).to.be.bignumber.equal("0");
-            expect(await this.buyout.highestBidValues(2)).to.be.bignumber.equal("0");
-            expect(await this.token0.balanceOf(this.buyout.address)).to.be.bignumber.equal("0");
-            expect(await this.token2.balanceOf(this.buyout.address)).to.be.bignumber.equal("0");
-            // tester1 places a bid
-            await this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester1, gas: 300000 });
-            // validate state post-bid
-            expect(await this.buyout.epochs(0)).to.be.bignumber.equal(currentEpoch(await time.latest()).toString());
-            expect(await this.buyout.epochs(1)).to.be.bignumber.equal((currentEpoch(await time.latest())+BUYOUT_DURATION_IN_EPOCHS).toString());
-            expect(await this.buyout.highestBidder()).equal(tester1);
-            expect(await this.buyout.highestBidValues(0)).to.be.bignumber.equal(totalBidAmount.toString());
-            expect(await this.buyout.highestBidValues(1)).to.be.bignumber.equal(token0Amount.toString());
-            expect(await this.buyout.highestBidValues(2)).to.be.bignumber.equal(token2Amount.toString());
-            expect(await this.token0.balanceOf(this.buyout.address)).to.be.bignumber.equal(token0Amount.toString());
-            expect(await this.token2.balanceOf(this.buyout.address)).to.be.bignumber.equal(token2Amount.toString());
-            expect(await this.token0.balanceOf(tester1)).to.be.bignumber.equal("0");
-            expect(await this.token2.balanceOf(tester1)).to.be.bignumber.equal("0");
-            //// tester3 decides to outbid tester1
-            totalBidAmount = web3.utils.toWei("20000000", "ether");// 20M worth of token2
-            token2Amount = web3.utils.toWei("15000000", "ether");// 15M token2
-            token0Amount = web3.utils.toWei("2500000", "ether");// 2.5M token0
-            expect(await this.buyout.requiredToken0ToBid(totalBidAmount, token2Amount)).to.be.bignumber.equal(token0Amount.toString());
-            // owner mints 15M token2 to tester3
-            await this.token2.mint(tester3, token2Amount, { from: owner, gas: 100000 });
-            // tester3 approves 15M token2 to buyout contract
-            await this.token2.approve(this.buyout.address, token2Amount, { from: tester3, gas: 100000 });
-            // tester3 approves 2.5M Token0 to buyout contract
-            await this.token0.approve(this.buyout.address, token0Amount, { from: tester3, gas: 100000 });
             // tester3 places a bid
-            await this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester3, gas: 300000 });
+            await this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester2, gas: 300000 });
             // validate state post-bid
             expect(await this.buyout.epochs(0)).to.be.bignumber.equal(currentEpoch(await time.latest()).toString());
-            expect(await this.buyout.epochs(1)).to.be.bignumber.equal((currentEpoch(await time.latest())+BID_INTERVAL_IN_EPOCHS).toString());
-            expect(await this.buyout.highestBidder()).equal(tester3);
+            expect(await this.buyout.epochs(1)).to.be.bignumber.equal((currentEpoch(await time.latest()) + BID_INTERVAL_IN_EPOCHS).toString());
+            expect(await this.buyout.highestBidder()).equal(tester2);
             expect(await this.buyout.highestBidValues(0)).to.be.bignumber.equal(totalBidAmount.toString());
             expect(await this.buyout.highestBidValues(1)).to.be.bignumber.equal(token0Amount.toString());
             expect(await this.buyout.highestBidValues(2)).to.be.bignumber.equal(token2Amount.toString());
@@ -393,8 +279,8 @@ contract("SimpleBuyout", (accounts) => {
             expect(await this.token2.balanceOf(this.buyout.address)).to.be.bignumber.equal(token2Amount.toString());
             expect(await this.token0.balanceOf(tester1)).to.be.bignumber.equal(ether("1000000"));
             expect(await this.token2.balanceOf(tester1)).to.be.bignumber.equal(ether("10800000"));
-            expect(await this.token0.balanceOf(tester3)).to.be.bignumber.equal("0");
-            expect(await this.token2.balanceOf(tester3)).to.be.bignumber.equal("0");
+            expect(await this.token0.balanceOf(tester2)).to.be.bignumber.equal(ether("500000"));
+            expect(await this.token2.balanceOf(tester2)).to.be.bignumber.equal(ether("9900000"));
         });
 
     });
@@ -405,8 +291,8 @@ contract("SimpleBuyout", (accounts) => {
         const token2Amount = web3.utils.toWei("10800000", "ether");// 10.8M token2
         const token0Amount = web3.utils.toWei("1000000", "ether");// 1M token0
 
-        beforeEach(async () => {
-            snapshotId = (await timeMachine.takeSnapshot())["result"];
+        before(async () => {
+            this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
             // owner mints 10.8M token2 to tester1
             await this.token2.mint(tester1, token2Amount, { from: owner, gas: 100000 });
             // tester1 approves 10.8M token2 to buyout contract
@@ -415,21 +301,18 @@ contract("SimpleBuyout", (accounts) => {
             await this.token0.approve(this.buyout.address, token0Amount, { from: tester1, gas: 100000 });
             // tester1 places a bid
             await this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester1, gas: 300000 });
+            await this.buyout.togglePause(true, { from: owner, gas: 100000 });
         });
 
-        afterEach(async() => {
-            await timeMachine.revertToSnapshot(snapshotId);
+        after(async () => {
+            await timeMachine.revertToSnapshot(this.snapshotIds.pop());
         });
 
-        it("fails if contract is not paused", async () => {
-            await expectRevert(
-                this.buyout.withdrawBid({ from: tester1, gas: 200000 }),
-                "Pausable: not paused"
-            );
+        it("[require] - contract is paused", async () => {
+            assert.equal(await this.buyout.paused(), true);
         });
 
         it("fails if called by non-highest-bidder", async () => {
-            await this.buyout.togglePause(true, { from: owner, gas: 100000 });
             await expectRevert(
                 this.buyout.withdrawBid({ from: tester3, gas: 200000 }),
                 "{withdrawBid} : sender is not highestBidder"
@@ -441,7 +324,6 @@ contract("SimpleBuyout", (accounts) => {
             expect(await this.buyout.highestBidValues(0)).to.be.bignumber.equal(totalBidAmount.toString());
             expect(await this.buyout.highestBidValues(1)).to.be.bignumber.equal(ether("1000000"));
             expect(await this.buyout.highestBidValues(2)).to.be.bignumber.equal(token2Amount.toString());
-            await this.buyout.togglePause(true, { from: owner, gas: 100000 });
             await this.buyout.withdrawBid({ from: tester1, gas: 200000 });
             expect(await this.buyout.highestBidder()).equal(constants.ZERO_ADDRESS);
             expect(await this.buyout.highestBidValues(0)).to.be.bignumber.equal("0");
@@ -453,28 +335,9 @@ contract("SimpleBuyout", (accounts) => {
 
     describe("veto", () => {
 
-        beforeEach(async () => {
-            snapshotId = (await timeMachine.takeSnapshot())["result"];
-        });
+        before(async () => {
+            this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
 
-        afterEach(async () => {
-            await timeMachine.revertToSnapshot(snapshotId);
-        });
-
-        it("fails when contract is paused", async () => {
-            await this.buyout.togglePause(true, { from: owner, gas: 2000000 });
-            //// bid revokation begins
-            token0Amount = web3.utils.toWei("500000", "ether");// 0.5M token0
-            // tester2 approves 0.5M Token0 to buyout contract
-            await this.token0.approve(this.buyout.address, token0Amount, { from: tester2, gas: 100000 });
-            // tester2 tries to stake 0.5M token0 to stop bid
-            await expectRevert(
-                this.buyout.veto(token0Amount, { from: tester2, gas: 250000 }),
-                "Pausable: paused",
-            );
-        });
-
-        it("fails if buyout expiry has been reached", async () => {
             const totalBidAmount = web3.utils.toWei("12000000", "ether");// 12M worth of token2
             const token2Amount = web3.utils.toWei("10800000", "ether");// 10.8M token2
             let token0Amount = web3.utils.toWei("1000000", "ether");// 1M token0
@@ -486,6 +349,19 @@ contract("SimpleBuyout", (accounts) => {
             await this.token0.approve(this.buyout.address, token0Amount, { from: tester1, gas: 100000 });
             // tester1 places a bid
             await this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester1, gas: 300000 });
+        });
+
+        after(async () => {
+            await timeMachine.revertToSnapshot(this.snapshotIds.pop());
+        });
+
+        it("[require] - contract is not paused", async () => {
+            assert.equal(await this.buyout.paused(), false);
+        });
+
+        it("fails if buyout expiry has been reached", async () => {
+            this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
+
             // time travel to end epoch
             const currentEpochValue = currentEpoch(await time.latest());
             const endEpochValue = (await this.buyout.epochs(1)).toNumber();
@@ -493,7 +369,7 @@ contract("SimpleBuyout", (accounts) => {
             const endTimestamp = EPOCH_PERIOD * epochDiff;
             await timeMachine.advanceTimeAndBlock(endTimestamp + EPOCH_PERIOD);
             //// bid revokation begins
-            token0Amount = web3.utils.toWei("500000", "ether");// 0.5M token0
+            const token0Amount = web3.utils.toWei("500000", "ether");// 0.5M token0
             // tester2 approves 0.5M Token0 to buyout contract
             await this.token0.approve(this.buyout.address, token0Amount, { from: tester2, gas: 100000 });
             // tester2 tries to stake 0.5M token0 to stop bid
@@ -501,22 +377,15 @@ contract("SimpleBuyout", (accounts) => {
                 this.buyout.veto(token0Amount, { from: tester2, gas: 250000 }),
                 "{_veto} : buyout is not active",
             );
+
+            await timeMachine.revertToSnapshot(this.snapshotIds.pop());
         });
 
         it("updates storage correctly when token0s are staked", async () => {
-            let totalBidAmount = web3.utils.toWei("12000000", "ether");// 12M worth of token2
-            let token2Amount = web3.utils.toWei("10800000", "ether");// 10.8M token2
-            let token0Amount = web3.utils.toWei("1000000", "ether");// 1M token0
-            // owner mints 10.8M token2 to tester1
-            await this.token2.mint(tester1, token2Amount, { from: owner, gas: 100000 });
-            // tester1 approves 10.8M token2 to buyout contract
-            await this.token2.approve(this.buyout.address, token2Amount, { from: tester1, gas: 100000 });
-            // tester1 approves 1.2M Token0 to buyout contract
-            await this.token0.approve(this.buyout.address, token0Amount, { from: tester1, gas: 100000 });
-            // tester1 places a bid
-            await this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester1, gas: 300000 });
             //// bid revokation begins
-            token0Amount = web3.utils.toWei("500000", "ether");// 0.5M token0
+            const totalBidAmount = web3.utils.toWei("12000000", "ether");// 12M worth of token2
+            const token2Amount = web3.utils.toWei("10800000", "ether");// 10.8M token2
+            const token0Amount = web3.utils.toWei("500000", "ether");// 0.5M token0
             // tester2 approves 0.5M Token0 to buyout contract
             await this.token0.approve(this.buyout.address, token0Amount, { from: tester2, gas: 100000 });
             // tester2 stakes 0.5M token0 to stop bid
@@ -598,20 +467,16 @@ contract("SimpleBuyout", (accounts) => {
 
     describe("extendVeto", () => {
 
-        beforeEach(async () => {
-            snapshotId = (await timeMachine.takeSnapshot())["result"];
+        before(async () => {
+            this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
         });
 
-        afterEach(async() => {
-            await timeMachine.revertToSnapshot(snapshotId);
+        after(async () => {
+            await timeMachine.revertToSnapshot(this.snapshotIds.pop());
         });
 
-        it("fails when contract is paused", async () => {
-            await this.buyout.togglePause(true, { from: owner, gas: 2000000 });
-            await expectRevert(
-                this.buyout.extendVeto({ from: tester2, gas: 250000 }),
-                "Pausable: paused",
-            );
+        it("[require] - contract is not paused", async () => {
+            assert.equal(await this.buyout.paused(), false);
         });
 
         it("fails if token0 has not been staked", async () => {
@@ -632,30 +497,6 @@ contract("SimpleBuyout", (accounts) => {
             // tester1 approves 1.2M Token0 to buyout contract
             await this.token0.approve(this.buyout.address, token0Amount, { from: tester1, gas: 100000 });
             // tester1 places a bid
-            await this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester1, gas: 300000 });
-            const token0VetoAmount = web3.utils.toWei("500000", "ether");// 0.5M token0
-            // tester2 approves 0.5M Token0 to buyout contract
-            await this.token0.approve(this.buyout.address, token0VetoAmount, { from: tester2, gas: 100000 });
-            // tester2 stakes 0.5M token0 to stop bid
-            await this.buyout.veto(token0VetoAmount, { from: tester2, gas: 250000 });
-            // fails when tester2 tries to extend their veto
-            await expectRevert(
-                this.buyout.extendVeto({ from: tester2, gas: 200000 }),
-                "{extendVeto} : already vetoed"
-            );
-        });
-
-        it("succeeds on non-vetoed bid", async () => {
-            let totalBidAmount = web3.utils.toWei("12000000", "ether");// 12M worth of token2
-            let token2Amount = web3.utils.toWei("10800000", "ether");// 10.8M token2
-            let token0Amount = web3.utils.toWei("1000000", "ether");// 1M token0
-            // owner mints 10.8M token2 to tester1
-            await this.token2.mint(tester1, token2Amount, { from: owner, gas: 100000 });
-            // tester1 approves 10.8M token2 to buyout contract
-            await this.token2.approve(this.buyout.address, token2Amount, { from: tester1, gas: 100000 });
-            // tester1 approves 1.2M Token0 to buyout contract
-            await this.token0.approve(this.buyout.address, token0Amount, { from: tester1, gas: 100000 });
-            // tester1 places a bid
             expect(await this.buyout.currentBidId()).to.be.bignumber.equal("0");
             await this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester1, gas: 300000 });
             expect(await this.buyout.currentBidId()).to.be.bignumber.equal("1");
@@ -668,10 +509,18 @@ contract("SimpleBuyout", (accounts) => {
             await this.buyout.veto(token0VetoAmount, { from: tester2, gas: 250000 });
             expect(await this.buyout.currentBidToken0Staked()).to.be.bignumber.equal(token0VetoAmount);
             expect(await this.buyout.lastVetoedBidId(tester2)).to.be.bignumber.equal("1");
+            // fails when tester2 tries to extend their veto
+            await expectRevert(
+                this.buyout.extendVeto({ from: tester2, gas: 200000 }),
+                "{extendVeto} : already vetoed"
+            );
+        });
+
+        it("succeeds on non-vetoed bid", async () => {
             //// tester3 decides to outbid tester1
-            totalBidAmount = web3.utils.toWei("20000000", "ether");// 20M worth of token2
-            token2Amount = web3.utils.toWei("15000000", "ether");// 15M token2
-            token0Amount = web3.utils.toWei("2500000", "ether");// 2.5M token0
+            const totalBidAmount = web3.utils.toWei("20000000", "ether");// 20M worth of token2
+            const token2Amount = web3.utils.toWei("15000000", "ether");// 15M token2
+            const token0Amount = web3.utils.toWei("2500000", "ether");// 2.5M token0
             // owner mints 15M token2 to tester3
             await this.token2.mint(tester3, token2Amount, { from: owner, gas: 100000 });
             // tester3 approves 15M token2 to buyout contract
@@ -684,7 +533,7 @@ contract("SimpleBuyout", (accounts) => {
             // tester2 extends their veto
             expect(await this.buyout.currentBidToken0Staked()).to.be.bignumber.equal("0");
             await this.buyout.extendVeto({ from: tester2, gas: 200000 });
-            expect(await this.buyout.currentBidToken0Staked()).to.be.bignumber.equal(token0VetoAmount);
+            expect(await this.buyout.currentBidToken0Staked()).to.be.bignumber.equal(ether("500000"));
             expect(await this.buyout.lastVetoedBidId(tester2)).to.be.bignumber.equal("2");
         });
 
@@ -692,12 +541,12 @@ contract("SimpleBuyout", (accounts) => {
 
     describe("withdrawStakedToken0", () => {
 
-        beforeEach(async () => {
-            snapshotId = (await timeMachine.takeSnapshot())["result"];
+        before(async () => {
+            this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
         });
 
-        afterEach(async () => {
-            await timeMachine.revertToSnapshot(snapshotId);
+        after(async () => {
+            await timeMachine.revertToSnapshot(this.snapshotIds.pop());
         });
 
         it("fails if token0Amount is zero", async () => {
@@ -758,8 +607,8 @@ contract("SimpleBuyout", (accounts) => {
         const token2Amount = web3.utils.toWei("10800000", "ether");// 10.8M token2
         const token0Amount = web3.utils.toWei("1000000", "ether");// 1M token0
 
-        beforeEach(async () => {
-            snapshotId = (await timeMachine.takeSnapshot())["result"];
+        before(async () => {
+            this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
             // owner mints 10.8M token2 to tester1
             await this.token2.mint(tester1, token2Amount, { from: owner, gas: 100000 });
             // tester1 approves 10.8M token2 to buyout contract
@@ -768,15 +617,18 @@ contract("SimpleBuyout", (accounts) => {
             await this.token0.approve(this.buyout.address, token0Amount, { from: tester1, gas: 100000 });
         });
 
-        afterEach(async () => {
-            await timeMachine.revertToSnapshot(snapshotId);
+        after(async () => {
+            await timeMachine.revertToSnapshot(this.snapshotIds.pop());
         });
 
-        it("fails when contract is paused", async () => {
-            await this.buyout.togglePause(true, { from: owner, gas: 2000000 });
+        it("[require] - contract is not paused", async () => {
+            assert.equal(await this.buyout.paused(), false);
+        });
+
+        it("fails if no bid was placed at all", async () => {
             await expectRevert(
-                this.buyout.endBuyout({ from: owner, gas: 250000 }),
-                "Pausable: paused",
+                this.buyout.endBuyout({ from: owner, gas: 100000 }),
+                "{endBuyout} : buyout does not have highestBidder",
             );
         });
 
@@ -789,16 +641,7 @@ contract("SimpleBuyout", (accounts) => {
             );
         });
 
-        it("fails if no bid was placed at all", async () => {
-            await expectRevert(
-                this.buyout.endBuyout({ from: owner, gas: 100000 }),
-                "{endBuyout} : buyout does not have highestBidder",
-            );
-        });
-
         it("updates storage correctly when successful", async () => {
-            // tester1 places a bid
-            await this.buyout.placeBid(totalBidAmount, token2Amount, { from: tester1, gas: 300000 });
             // time travel to end epoch
             const currentEpochValue = currentEpoch(await time.latest());
             const endEpochValue = (await this.buyout.epochs(1)).toNumber();
@@ -829,12 +672,12 @@ contract("SimpleBuyout", (accounts) => {
         let token2Amount = web3.utils.toWei("10800000", "ether");// 10.8M token2
         let token0Amount = web3.utils.toWei("1000000", "ether");// 1M token0
 
-        beforeEach(async () => {
-            snapshotId = (await timeMachine.takeSnapshot())["result"];
+        before(async () => {
+            this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
         });
 
-        afterEach(async () => {
-            await timeMachine.revertToSnapshot(snapshotId);
+        after(async () => {
+            await timeMachine.revertToSnapshot(this.snapshotIds.pop());
         });
 
         it("fails if token2Amount >  totalBidAmount", async () => {
@@ -862,23 +705,20 @@ contract("SimpleBuyout", (accounts) => {
 
     describe("transferVaultOwnership", async () => {
 
-        beforeEach(async () => {
-            snapshotId = (await timeMachine.takeSnapshot())["result"];
+        before(async () => {
+            this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
+            await this.buyout.togglePause(true, { from: owner, gas: 100000 });
         });
 
-        afterEach(async() => {
-            await timeMachine.revertToSnapshot(snapshotId);
+        after(async () => {
+            await timeMachine.revertToSnapshot(this.snapshotIds.pop());
         });
 
-        it("fails if contract is not paused", async () => {
-            await expectRevert(
-                this.buyout.transferVaultOwnership(tester1, { from: owner, gas: 100000 }),
-                "Pausable: not paused",
-            );
+        it("[require] - contract is paused", async () => {
+            assert.equal(await this.buyout.paused(), true);
         });
 
         it("fails if called by non-owner", async () => {
-            await this.buyout.togglePause(true, { from: owner, gas: 100000 });
             await expectRevert(
                 this.buyout.transferVaultOwnership(tester2, { from: tester1, gas: 100000 }),
                 "Ownable: caller is not the owner",
@@ -886,7 +726,6 @@ contract("SimpleBuyout", (accounts) => {
         });
 
         it("fails if newOwner address is zero", async () => {
-            await this.buyout.togglePause(true, { from: owner, gas: 100000 });
             await expectRevert(
                 this.buyout.transferVaultOwnership(constants.ZERO_ADDRESS, { from: owner, gas: 100000 }),
                 "{transferVaultOwnership} : invalid newOwner",
@@ -894,7 +733,6 @@ contract("SimpleBuyout", (accounts) => {
         });
 
         it("succeeds if called by non-owner on paused contract", async () => {
-            await this.buyout.togglePause(true, { from: owner, gas: 100000 });
             assert.equal(this.buyout.address, await this.vault.owner());
             await this.buyout.transferVaultOwnership(tester1, { from: owner, gas: 200000 });
             assert.equal(tester1, await this.vault.owner());
@@ -905,15 +743,9 @@ contract("SimpleBuyout", (accounts) => {
     describe("redeem", () => {
         const redeemToken0Amount = web3.utils.toWei("500000", "ether");
 
-        beforeEach(async () => {
-            snapshotId = (await timeMachine.takeSnapshot())["result"];
-        });
-
-        afterEach(async() => {
-            await timeMachine.revertToSnapshot(snapshotId);
-        });
-
         before(async () => {
+            this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
+
             let totalBidAmount = web3.utils.toWei("12000000", "ether");// 12M worth of token2
             let token2Amount = web3.utils.toWei("10800000", "ether");// 10.8M token2
             let token0Amount = web3.utils.toWei("1000000", "ether");// 1M token0
@@ -933,6 +765,10 @@ contract("SimpleBuyout", (accounts) => {
             await timeMachine.advanceTimeAndBlock(endTimestamp + EPOCH_PERIOD);
             // tester2 approves 0.5M Token0 to redeem contract
             await this.token0.approve(this.buyout.address, redeemToken0Amount, { from: tester2, gas: 200000 });
+        });
+
+        after(async () => {
+            await timeMachine.revertToSnapshot(this.snapshotIds.pop());
         });
 
         it("fails if status is not ENABLED", async () => {
@@ -956,8 +792,6 @@ contract("SimpleBuyout", (accounts) => {
         });
 
         it("fails with invalid token0 amount (zero)", async () => {
-            // buyout is ended
-            await this.buyout.endBuyout({ from: owner, gas: 100000 });
             const zeroToken0Amount = web3.utils.toWei("0", "ether");
             await expectRevert(
                 this.buyout.redeem(
@@ -969,8 +803,6 @@ contract("SimpleBuyout", (accounts) => {
         });
 
         it("works as expected", async () => {
-            // buyout is ended
-            await this.buyout.endBuyout({ from: owner, gas: 100000 });
             await this.buyout.redeem(redeemToken0Amount, { from: tester2, gas: 200000 });
             expect(await this.token0.balanceOf(tester2)).to.be.bignumber.equal("0");
             expect(await this.token2.balanceOf(tester2)).to.be.bignumber.equal(ether("600000"));
