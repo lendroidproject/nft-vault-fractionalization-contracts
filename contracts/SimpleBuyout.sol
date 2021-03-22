@@ -34,8 +34,6 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
     uint256[4] public epochs;// [startEpoch, endEpoch, durationInEpochs, bidIntervalInEpochs]
     //// vault
     IVault public vault;
-    //// redeem
-    IRedeem public redemption;
     //// governance
     uint256 public stopThresholdPercent;
     uint256 public currentBidToken0Staked;
@@ -46,6 +44,8 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
     //// bid and veto count
     uint256 public currentBidId;
     mapping (address => uint256) public lastVetoedBidId;
+    //// redeem
+    uint256 public redeemToken2Amount;
 
     // Events that will be emitted on changes.
     event HighestBidIncreased(address bidder, uint256 amount);
@@ -83,12 +83,6 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         }
     }
 
-    function setRedemption(address redeemAddress) external onlyOwner {
-        require(redeemAddress != address(0), "{setRedemption} : invalid redeemAddress");
-        require(address(redemption) == address(0), "{setRedemption} : redemption address has already been set");
-        redemption = IRedeem(redeemAddress);
-    }
-
     function transferVaultOwnership(address newOwner) external onlyOwner whenPaused {
         require(newOwner != address(0), "{transferVaultOwnership} : invalid newOwner");
         // transfer ownership of Vault to newOwner
@@ -106,8 +100,6 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         require(token0.balanceOf(msg.sender) >= token0Amount, "{placeBid} : insufficient token0 balance");
         require(token0Amount >= token0.totalSupply().mul(5).div(100),
             "{placeBid} : token0Amount should be at least 5% of token0 totalSupply");
-        // set startEpoch
-        epochs[0] = currentEpoch();
         // increment bid number and reset veto count
         currentBidId = currentBidId.add(1);
         currentBidToken0Staked = 0;
@@ -121,6 +113,8 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
             status = BuyoutStatus.ACTIVE;
             epochs[1] = currentEpoch().add(epochs[2]);
         }
+        // set startEpoch
+        epochs[0] = currentEpoch();
         // return highest bid to previous bidder
         if (highestBidValues[0] > 0) {
             if (highestBidValues[1] > 0) {
@@ -157,7 +151,7 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
 
     function withdrawStakedToken0(uint256 token0Amount) external {
         require(token0Amount > 0, "{withdrawStakedToken0} : token0Amount cannot be zero");
-        require(token0Staked[msg.sender] > token0Amount,
+        require(token0Staked[msg.sender] >= token0Amount,
             "{withdrawStakedToken0} : token0Amount cannot exceed staked amount");
         token0Staked[msg.sender] = token0Staked[msg.sender].sub(token0Amount);
         token0.safeTransfer(msg.sender, token0Amount);
@@ -171,18 +165,13 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         // additional safety checks
         require(((highestBidValues[1] > 0) || (highestBidValues[2] > 0)),
             "{endBuyout} : highestBidder deposits cannot be 0");
-        require(address(redemption) != address(0), "{endBuyout} : redemption address has not yet been set");
         // set status
         status = BuyoutStatus.ENDED;
-        // enable SimpleRedeem contract
-        redemption.enableRedeem(address(token0), address(token2), highestBidValues[2]);
+        redeemToken2Amount = highestBidValues[2];
+        highestBidValues[2] = 0;
         // burn token0Amount
         if (highestBidValues[1] > 0) {
             token0.burn(highestBidValues[1]);
-        }
-        // send token2Amount to redeem contract
-        if (highestBidValues[2] > 0) {
-            token2.safeTransfer(address(redemption), highestBidValues[2]);
         }
         // transfer ownership of Vault to highestBidder
         vault.transferOwnership(highestBidder);
@@ -194,6 +183,22 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         require(highestBidder == msg.sender, "{withdrawBid} : sender is not highestBidder");
         _resetHighestBidDetails();
 
+    }
+
+    function redeem(uint256 token0Amount) external {
+        require(status == BuyoutStatus.ENDED, "{redeem} : redeem has not yet been enabled");
+        require(token0.balanceOf(msg.sender) >= token0Amount, "{redeem} : insufficient token0 amount");
+        require(token0Amount > 0, "{redeem} : token0 amount cannot be zero");
+        uint256 token2Amount = token2AmountRedeemable(token0Amount);
+        redeemToken2Amount = redeemToken2Amount.sub(token2Amount);
+        // burn token0Amount
+        token0.burnFrom(msg.sender, token0Amount);
+        // send token2Amount
+        token2.safeTransfer(msg.sender, token2Amount);
+    }
+
+    function token2AmountRedeemable(uint256 token0Amount) public view returns (uint256) {
+        return token0Amount.mul(redeemToken2Amount).div(token0.totalSupply());
     }
 
     function requiredToken0ToBid(uint256 totalBidAmount, uint256 token2Amount) public view returns (uint256) {

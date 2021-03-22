@@ -34,16 +34,11 @@ contract SimpleRedeem is IRedeem {
         buyoutAddress = buyoutContractAddress;
     }
 
-    function enableRedeem(address token0Address, address token2Address,
-            uint256 token2Amount) external override {
+    /* function enable(address token0Address, address token2Address, uint256 token2Amount) external override { */
+    function enable(address token0Address, address token2Address, uint256 token2Amount) external override {
         // validate sender
-        require(msg.sender == buyoutAddress, "{enableRedeem} : invalid sender");
-        // validate status
-        require(status == RedeemStatus.CREATED, "{enableRedeem} : redeem has already been enabled");
-        // input validations
-        require(token0Address.isContract(), "{enableRedeem} : invalid token0Address");
-        require(token2Address.isContract(), "{enableRedeem} : invalid token2Address");
-        require(token2Amount > 0, "{enableRedeem} : token2Amount cannot be zero");
+        require(msg.sender == buyoutAddress, "{enable} : invalid caller");
+        // checks for token addresses and token2Amount are made on the Buyout contract, we don't repeat them here)
         // set values
         status = RedeemStatus.ENABLED;
         token0 = IToken0(token0Address);

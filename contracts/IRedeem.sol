@@ -6,8 +6,7 @@ pragma solidity 0.7.5;
  * @dev Required interface of a Redeem compliant contract.
  */
 interface IRedeem {
-    function enableRedeem(address token0Address, address token2Address,
-            uint256 token2Amount) external;
+    function enable(address token0Address, address token2Address, uint256 token2Amount) external;
 
     function redeem(uint256 token0Amount) external;
 

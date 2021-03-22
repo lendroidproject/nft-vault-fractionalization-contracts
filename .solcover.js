@@ -7,6 +7,11 @@ module.exports = {
     },
     skipFiles: [
         'mocks',
-        'heartbeat/Pacemaker.sol'
+        'heartbeat/Pacemaker.sol',
+        // 'SimpleVault.sol',
+        // 'SimpleMarket.sol',
+        // 'SimpleMarket2.sol',
+        // 'SimpleBuyout.sol',
+        'SimpleRedeem.sol',
     ]
 };
