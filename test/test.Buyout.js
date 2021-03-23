@@ -90,7 +90,7 @@ contract("SimpleBuyout", (accounts) => {
             expect(await this.buyout.epochs(3), BID_INTERVAL_IN_EPOCHS.toString());
             expect(await this.buyout.stopThresholdPercent(), BUYOUT_STOP_THRESHOLD_PERCENTAGE.toString());
             assert.equal(await this.buyout.paused(), false);
-            assert.equal(await this.buyout.vault(), this.vault.address);
+            assert.equal(await this.buyout.status(), 0);
         });
     });
 
@@ -124,6 +124,10 @@ contract("SimpleBuyout", (accounts) => {
 
         it("[require] - contract is not paused", async () => {
             assert.equal(await this.buyout.paused(), false);
+        });
+
+        it("[require] - buyout not ended", async () => {
+            assert.notEqual(await this.buyout.status(), 3);
         });
 
         it("fails with totalBidAmount < minimum threshold", async () => {
@@ -355,8 +359,16 @@ contract("SimpleBuyout", (accounts) => {
             await timeMachine.revertToSnapshot(this.snapshotIds.pop());
         });
 
-        it("[require] - contract is not paused", async () => {
+        it("[require] - contract is not paused and is actuve", async () => {
             assert.equal(await this.buyout.paused(), false);
+            assert.equal(await this.buyout.status(), 1);
+        });
+
+        it("[require] - token0 amount cannot be zero", async () => {
+            await expectRevert(
+                this.buyout.veto(web3.utils.toWei("0", "ether"), { from: tester2, gas: 250000 }),
+                "{veto} : token0Amount cannot be zero",
+            );
         });
 
         it("fails if buyout expiry has been reached", async () => {
@@ -373,6 +385,7 @@ contract("SimpleBuyout", (accounts) => {
             // tester2 approves 0.5M Token0 to buyout contract
             await this.token0.approve(this.buyout.address, token0Amount, { from: tester2, gas: 100000 });
             // tester2 tries to stake 0.5M token0 to stop bid
+            assert.equal(await this.buyout.status(), 1);
             await expectRevert(
                 this.buyout.veto(token0Amount, { from: tester2, gas: 250000 }),
                 "{_veto} : buyout is not active",
@@ -625,6 +638,11 @@ contract("SimpleBuyout", (accounts) => {
             assert.equal(await this.buyout.paused(), false);
         });
 
+        it("[require] - highestBidder should exists", async () => {
+            assert.notEqual(await this.buyout.highestBidValues(0), ether("0"));
+            assert.notEqual(await this.buyout.highestBidValues(2), ether("0"));
+        });
+
         it("fails if no bid was placed at all", async () => {
             await expectRevert(
                 this.buyout.endBuyout({ from: owner, gas: 100000 }),
@@ -657,7 +675,9 @@ contract("SimpleBuyout", (accounts) => {
             expect(await this.token0.balanceOf(this.buyout.address)).to.be.bignumber.equal("0");
             expect(await this.token2.balanceOf(this.buyout.address)).to.be.bignumber.equal(token2Amount.toString());
             expect(await this.buyout.highestBidValues(2)).to.be.bignumber.equal("0");
-            // fails if trying to endBuout again
+        });
+
+        it("[fail] - contract is already ended", async () => {
             await expectRevert(
                 this.buyout.endBuyout({ from: owner, gas: 100000 }),
                 "{endBuyout} : buyout has already ended",
@@ -803,6 +823,7 @@ contract("SimpleBuyout", (accounts) => {
         });
 
         it("works as expected", async () => {
+            expect(await this.buyout.token2AmountRedeemable(redeemToken0Amount)).to.be.bignumber.equal(ether("600000"));
             await this.buyout.redeem(redeemToken0Amount, { from: tester2, gas: 200000 });
             expect(await this.token0.balanceOf(tester2)).to.be.bignumber.equal("0");
             expect(await this.token2.balanceOf(tester2)).to.be.bignumber.equal(ether("600000"));

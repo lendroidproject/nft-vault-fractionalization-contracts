@@ -136,6 +136,7 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
     }
 
     function veto(uint256 token0Amount) external whenNotPaused {
+        require(token0Amount > 0, "{veto} : token0Amount cannot be zero");
         _veto(msg.sender, token0Amount);
         token0Staked[msg.sender] = token0Staked[msg.sender].add(token0Amount);
         token0.safeTransferFrom(msg.sender, address(this), token0Amount);
