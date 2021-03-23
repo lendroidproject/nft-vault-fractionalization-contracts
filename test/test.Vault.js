@@ -6,6 +6,7 @@ const { expect } = require("chai");
 
 const NFT1 = artifacts.require("MockNFT1");
 const NFT2 = artifacts.require("MockNFT2");
+const NFT3 = artifacts.require("MockNFT3");
 const Vault = artifacts.require("SimpleVault");
 
 
@@ -17,9 +18,11 @@ contract("SimpleVault", (accounts) => {
 
     const CATEGORY_1 = "category1";
     const CATEGORY_2 = "category2";
+    const CATEGORY_3 = "category3";
 
     this.nft1 = null;
     this.nft2 = null;
+    this.nft3 = null;
 
     this.vault = null;
 
@@ -28,6 +31,7 @@ contract("SimpleVault", (accounts) => {
     before(async () => {
         this.nft1 = await NFT1.new();
         this.nft2 = await NFT2.new();
+        this.nft3 = await NFT3.new();
         this.vault = await Vault.deployed();
     });
 
@@ -116,6 +120,38 @@ contract("SimpleVault", (accounts) => {
             );
         });
 
+        it("[success] - supports adding NFT with deprecated onERC721Received()", async () => {
+            this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
+            // mint 1 TNFT3 to owner
+            await this.nft3.mintTo(owner);
+            await this.nft3.approve(this.vault.address, 1, { from: owner });
+            expect(await this.vault.totalAssets()).to.be.bignumber.equal("0");
+            expect(await this.vault.totalAssetSlots()).to.be.bignumber.equal("0");
+            assert.equal(owner, await this.nft3.ownerOf(1));
+
+            await this.vault.safeAddAsset(
+                [
+                    this.nft3.address
+                ],
+                [
+                    1
+                ],
+                [
+                    CATEGORY_3
+                ], { from: owner, gas: 2000000 });
+
+            expect(await this.vault.totalAssets()).to.be.bignumber.equal("1");
+            expect(await this.vault.totalAssetSlots()).to.be.bignumber.equal("1");
+            assert.equal(this.vault.address, await this.nft3.ownerOf(1));
+
+            // verify recently added assetInfo
+            let assetInfo = await this.vault.assets(0);
+            assert.equal(assetInfo.category, CATEGORY_3);
+            assert.equal(assetInfo.tokenAddress, this.nft3.address);
+            assert.equal(assetInfo.tokenId, 1);
+            await timeMachine.revertToSnapshot(this.snapshotIds.pop());
+        });
+
         it("[success] - when owner adds his assets", async () => {
             // mint 4 TNFT1s to owner
             for (i = 0; i < 4; i++) {
@@ -191,6 +227,7 @@ contract("SimpleVault", (accounts) => {
             assert.equal(assetInfo.tokenAddress, this.nft2.address);
             assert.equal(assetInfo.tokenId, 3);
         });
+
     });
 
     describe("safeTransferAsset", async () => {
