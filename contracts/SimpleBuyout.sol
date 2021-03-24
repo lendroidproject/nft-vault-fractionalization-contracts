@@ -104,24 +104,22 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         currentBidToken0Staked = 0;
         // update endEpoch
         if (status == BuyoutStatus.ACTIVE) {
+            // already active
             require(currentEpoch() <= epochs[1], "{placeBid} : buyout end epoch has been surpassed");
             epochs[1] = currentEpoch().add(epochs[3]);
-        }
-        // activate buyout process if applicable
-        if ((status == BuyoutStatus.ENABLED) || (status == BuyoutStatus.REVOKED)) {
+        } else {
+            // activate buyout process if applicable
             status = BuyoutStatus.ACTIVE;
             epochs[1] = currentEpoch().add(epochs[2]);
         }
         // set startEpoch
         epochs[0] = currentEpoch();
         // return highest bid to previous bidder
-        if (highestBidValues[0] > 0) {
-            if (highestBidValues[1] > 0) {
-                token0.safeTransfer(highestBidder, highestBidValues[1]);
-            }
-            if (highestBidValues[2] > 0) {
-                token2.safeTransfer(highestBidder, highestBidValues[2]);
-            }
+        if (highestBidValues[1] > 0) {
+            token0.safeTransfer(highestBidder, highestBidValues[1]);
+        }
+        if (highestBidValues[2] > 0) {
+            token2.safeTransfer(highestBidder, highestBidValues[2]);
         }
         // set sender as highestBidder and totalBidAmount as highestBidValues[0]
         highestBidder = msg.sender;
@@ -190,6 +188,7 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         require(token0.balanceOf(msg.sender) >= token0Amount, "{redeem} : insufficient token0 amount");
         require(token0Amount > 0, "{redeem} : token0 amount cannot be zero");
         uint256 token2Amount = token2AmountRedeemable(token0Amount);
+        require(redeemToken2Amount > token2Amount, "{redeem} : insufficient request");
         redeemToken2Amount = redeemToken2Amount.sub(token2Amount);
         // burn token0Amount
         token0.burnFrom(msg.sender, token0Amount);
