@@ -188,7 +188,6 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         require(token0.balanceOf(msg.sender) >= token0Amount, "{redeem} : insufficient token0 amount");
         require(token0Amount > 0, "{redeem} : token0 amount cannot be zero");
         uint256 token2Amount = token2AmountRedeemable(token0Amount);
-        require(redeemToken2Amount > token2Amount, "{redeem} : insufficient request");
         redeemToken2Amount = redeemToken2Amount.sub(token2Amount);
         // burn token0Amount
         token0.burnFrom(msg.sender, token0Amount);
