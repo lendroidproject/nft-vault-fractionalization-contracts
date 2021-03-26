@@ -135,8 +135,9 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
 
     function veto(uint256 token0Amount) external whenNotPaused {
         require(token0Amount > 0, "{veto} : token0Amount cannot be zero");
-        _veto(msg.sender, token0Amount);
         token0Staked[msg.sender] = token0Staked[msg.sender].add(token0Amount);
+        uint256 vetoAmount = lastVetoedBidId[msg.sender] == currentBidId ? token0Amount : token0Staked[msg.sender];
+        _veto(msg.sender, vetoAmount);
         token0.safeTransferFrom(msg.sender, address(this), token0Amount);
     }
 
@@ -239,7 +240,7 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         } else {
             currentBidToken0Staked = 0;
             // increase startThreshold by 8% of last bid
-            startThreshold = highestBidValues[2].mul(108).div(100);
+            startThreshold = highestBidValues[0].mul(108).div(100);
             // reset endEpoch
             epochs[1] = 0;
             // set status
