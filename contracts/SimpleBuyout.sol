@@ -153,9 +153,9 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         require(token0Staked[msg.sender] >= token0Amount,
             "{withdrawStakedToken0} : token0Amount cannot exceed staked amount");
         // ensure Token0 cannot be unstaked if users veto on current bid has not expired
-        if (lastVetoedBidId[msg.sender] == currentBidId) {
+        if ((status == BuyoutStatus.ACTIVE) && (currentEpoch() <= epochs[1]) {
             // already active
-            require((status == BuyoutStatus.ACTIVE) && (currentEpoch() <= epochs[1]),
+            require(lastVetoedBidId[msg.sender] != currentBidId,
                 "{withdrawStakedToken0} : cannot unstake until veto on current bid expires");
         }
         token0Staked[msg.sender] = token0Staked[msg.sender].sub(token0Amount);
