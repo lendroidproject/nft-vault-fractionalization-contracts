@@ -45,6 +45,8 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
     mapping (address => uint256) public lastVetoedBidId;
     //// redeem
     uint256 public redeemToken2Amount;
+    //// prevent flash loan attacks on veto/withdrawVeto logic
+    mapping (address => uint256) public lastVetoedBlockNumber;
 
     // Events that will be emitted on changes.
     event HighestBidIncreased(address bidder, uint256 amount);
@@ -149,6 +151,7 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
     }
 
     function withdrawStakedToken0(uint256 token0Amount) external {
+        require(lastVetoedBlockNumber[msg.sender] < block.number, "{withdrawStakedToken0} : Flash attack!");
         require(token0Amount > 0, "{withdrawStakedToken0} : token0Amount cannot be zero");
         require(token0Staked[msg.sender] >= token0Amount,
             "{withdrawStakedToken0} : token0Amount cannot exceed staked amount");
@@ -239,6 +242,7 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         require((
             (status == BuyoutStatus.ACTIVE) && (currentEpoch() >= epochs[0]) && (currentEpoch() <= epochs[1])
         ), "{_veto} : buyout is not active");
+        lastVetoedBlockNumber[sender] = block.number;
         lastVetoedBidId[sender] = currentBidId;
         uint256 updatedCurrentBidToken0Staked = currentBidToken0Staked.add(token0Amount);
         if (updatedCurrentBidToken0Staked < stopThresholdPercent.mul(token0.totalSupply().div(100))) {
