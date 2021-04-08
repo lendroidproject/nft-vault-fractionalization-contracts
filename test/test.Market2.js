@@ -20,6 +20,7 @@ contract("SimpleMarket2", (accounts) => {
     const tester1 = accounts[1];
     const tester2 = accounts[2];
     const tester3 = accounts[3];
+    const tester4 = accounts[4];
 
     this.currentTime = null;
 
@@ -37,6 +38,11 @@ contract("SimpleMarket2", (accounts) => {
         this.token0 = await Token0.deployed();
         this.token1 = await Token1.deployed();
         this.fundsWallet = await SimpleWallet.deployed();
+        this.whitelistAddresses = [
+            tester1,
+            tester2,
+            tester3,
+        ];
     });
 
     beforeEach(async () => {
@@ -249,6 +255,31 @@ contract("SimpleMarket2", (accounts) => {
 
     });
 
+    describe("whitelistAddresses", () => {
+
+        it("[require] - caller needs to be the owner", async () => {
+            await expectRevert(
+                this.market.whitelistAddresses(this.whitelistAddresses, { from: tester1, gas: 2000000 }),
+                "Ownable: caller is not the owner",
+            );
+        });
+
+        it("[fail] - invalid params", async () => {
+            await expectRevert(
+                this.market.whitelistAddresses(new Array(101).fill(constants.ZERO_ADDRESS), { from: owner, gas: 2000000 }),
+                "{whitelistAddresses} : invalid params",
+            );
+            await expectRevert(
+                this.market.whitelistAddresses([constants.ZERO_ADDRESS], { from: owner, gas: 2000000 }),
+                "{whitelistAddresses} : invalid params",
+            );
+        });
+
+        it("[success] - valid inputs", async () => {
+            await this.market.whitelistAddresses(this.whitelistAddresses, { from: owner, gas: 2000000 });
+        });
+    });
+
     describe("pay", () => {
 
         before(async () => {
@@ -268,6 +299,13 @@ contract("SimpleMarket2", (accounts) => {
             await expectRevert(
                 this.market.pay(web3.utils.toWei("0", "ether"), { from: tester1, gas: 2000000 }),
                 "{pay} : token1Amount cannot be zero",
+            );
+        });
+
+        it("fails when user not whitelisted", async () => {
+            await expectRevert(
+                this.market.pay(web3.utils.toWei("360", "ether"), { from: tester4, gas: 2000000 }),
+                "{pay} : user is not whitelisted",
             );
         });
 

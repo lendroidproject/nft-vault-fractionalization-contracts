@@ -36,6 +36,8 @@ contract SimpleMarket2 is Ownable {
     address[] public buyers;
     mapping (address => uint256) public payments;
 
+    mapping (address => bool) public whitelist;
+
     event PaymentReceived(address buyer, uint256 amount);
 
     function createMarket(address token0Address, address token1Address,
@@ -71,6 +73,15 @@ contract SimpleMarket2 is Ownable {
         marketStatus = MarketStatus.CLOSED;
     }
 
+    function whitelistAddresses(address[] calldata addrs) external onlyOwner returns(bool) {
+        require(addrs.length <= 100, "{whitelistAddresses} : invalid params");
+        for (uint i = 0; i < addrs.length; i++) {
+            require(addrs[i] != address(0), "{whitelistAddresses} : invalid params");
+            whitelist[addrs[i]] = true;
+        }
+        return true;
+    }
+
     /**
     * @notice Records payment per account.
     */
@@ -83,6 +94,7 @@ contract SimpleMarket2 is Ownable {
         require(totaltoken1Paid.add(token1Amount) <= totalCap, "{pay} : token1Amount cannot exceed totalCap");
         require(payments[msg.sender].add(token1Amount) <= individualCap,
             "{pay} : token1Amount cannot exceed individualCap");
+        require(whitelist[msg.sender], "{pay} : user is not whitelisted");
         // if we have not received any WEI from this address until now, then we add this address to buyers list.
         if (payments[msg.sender] == 0) {
             buyers.push(msg.sender);
