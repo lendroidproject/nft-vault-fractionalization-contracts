@@ -26,7 +26,7 @@ contract Token0 is IToken0, ERC20Capped, ERC20Burnable, Ownable {
         super.burn(amount);
     }
 
-    function burnFrom(address account, uint256 amount) public override(ERC20Burnable, IToken0) {
+    function burnFrom(address account, uint256 amount) public override(ERC20Burnable, IToken0) onlyOwner {
         super.burnFrom(account, amount);
     }
 
