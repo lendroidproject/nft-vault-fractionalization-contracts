@@ -112,6 +112,10 @@ contract SimpleVault is IVault, Ownable, ERC721Holder {
         return assets.length;
     }
 
+    function vaultOwner() public view override returns (address) {
+        return owner();
+    }
+
     /**
      * @dev Transfers ownership of the contract to a new account (`newOwner`).
      * Can only be called by the current owner.
