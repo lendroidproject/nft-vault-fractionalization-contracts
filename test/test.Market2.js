@@ -180,7 +180,8 @@ contract("SimpleMarket2", (accounts) => {
                     [
                         this.marketStart.toNumber(),
                         web3.utils.toWei("1600001", "ether"),
-                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether")
+                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether"),
+                        web3.utils.toWei(INDIVIDUAL_CAP.toString(), "ether")
                     ], { from: owner, gas: 2000000 }),
                 "{createMarket}: insufficient token0 balance to meet totalCap",
             );
