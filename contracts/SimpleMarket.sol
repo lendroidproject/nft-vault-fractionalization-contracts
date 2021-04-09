@@ -48,10 +48,11 @@ contract SimpleMarket is Ownable {
         // solhint-disable-next-line not-rely-on-time
         require(uint256Values[0] >= block.timestamp, "{createMarket} : marketStart should be in the future");
         require(uint256Values[1] > 0, "{createMarket} : totalCap cannot be zero");
+        token0 = IToken0(token0Address);
+        require(token0.balanceOf(address(this)) >= uint256Values[1], "{createMarket}: insufficient token0 balance to meet totalCap");
         require(uint256Values[2] > 0, "{createMarket} : token1PerToken0 cannot be zero");
         marketStatus = MarketStatus.OPEN;
         // set values
-        token0 = IToken0(token0Address);
         token1 = IERC20(token1Address);
         fundsWallet = fundsWalletAddress;
         marketStart = uint256Values[0];
@@ -66,6 +67,11 @@ contract SimpleMarket is Ownable {
         require(marketStatus == MarketStatus.OPEN, "{closeMarket} : marketStatus is not OPEN");
         // close market
         marketStatus = MarketStatus.CLOSED;
+        // retrieve token0 remaining to owner
+        uint256 token0Remaining = token0.balanceOf(owner());
+        if (token0Remaining > 0) {
+            token0.safeTransfer(owner(), token0Remaining);
+        }
     }
 
     /**
