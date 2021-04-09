@@ -46,6 +46,9 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
     //// redeem
     uint256 public redeemToken2Amount;
 
+    uint256 constant public MINIMUM_BID_PERCENTAGE_INCREASE_ON_VETO = 108;
+    uint256 constant public MINIMUM_BID_TOKEN0_PERCENTAGE_REQUIRED = 5;
+
     // Events that will be emitted on changes.
     event HighestBidIncreased(address bidder, uint256 amount);
     event BuyoutStarted(address bidder, uint256 amount);
@@ -60,7 +63,7 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         require(vaultAddress.isContract(), "{enableBuyout} : invalid vaultAddress");
         require(uint256Values[0] > 0, "{enableBuyout} : startThreshold cannot be zero");
         require(uint256Values[1] > 0, "{enableBuyout} : durationInEpochs cannot be zero");
-        // uint256Values[1], aka, bidIntervalInEpochs can be zero, so no checks required.
+        // uint256Values[2], aka, bidIntervalInEpochs can be zero, so no checks required.
         require(uint256Values[3] > 0 && uint256Values[3] <= 100,
             "{enableBuyout} : stopThresholdPercent should be between 1 and 100");
         // set values
@@ -82,6 +85,14 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         }
     }
 
+    /**
+    * @notice Safety function to handle accidental token transfer to the contract
+    */
+    function escapeHatchERC20(address tokenAddress) external onlyOwner {
+        IERC20 token = IERC20(tokenAddress);
+        token.safeTransfer(owner(), token.balanceOf(address(this)));
+    }
+
     function transferVaultOwnership(address newOwner) external onlyOwner whenPaused {
         require(newOwner != address(0), "{transferVaultOwnership} : invalid newOwner");
         // transfer ownership of Vault to newOwner
@@ -97,7 +108,7 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         require(totalBidAmount > highestBidValues[0], "{placeBid} : there already is a higher bid");
         uint256 token0Amount = requiredToken0ToBid(totalBidAmount, token2Amount);
         require(token0.balanceOf(msg.sender) >= token0Amount, "{placeBid} : insufficient token0 balance");
-        require(token0Amount >= token0.totalSupply().mul(5).div(100),
+        require(token0Amount >= token0.totalSupply().mul(MINIMUM_BID_TOKEN0_PERCENTAGE_REQUIRED).div(100),
             "{placeBid} : token0Amount should be at least 5% of token0 totalSupply");
         // increment bid number and reset veto count
         currentBidId = currentBidId.add(1);
@@ -246,7 +257,7 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         } else {
             currentBidToken0Staked = 0;
             // increase startThreshold by 8% of last bid
-            startThreshold = highestBidValues[0].mul(108).div(100);
+            startThreshold = highestBidValues[0].mul(MINIMUM_BID_PERCENTAGE_INCREASE_ON_VETO).div(100);
             // reset endEpoch
             epochs[1] = 0;
             // set status

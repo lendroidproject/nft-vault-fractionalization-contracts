@@ -1,13 +1,13 @@
 # b20-contracts
-Smart contracts for the B20 project
+Smart contracts for the B.20 project
 
 ## Framework
 This branch consists of (simplified versions of) 4 main smart contracts:
 
 1. `SimpleVault.sol` -> Collector locks their NFTs. Vault ownership is transferred to successful bidder from the Buyout process.
-2. `SimpleMarket.sol` -> Collector sells ERC20 Token0s representing the Vault, by accepting ERC20 Token1 as payment.
-3. `SimpleBuyout.sol` -> Anyone can bid for the Vault using ERC20 Token2. Anyone can stake Token0 to prevent the buyout.
-4. `SimpleRedeem.sol` -> Post-buyout, Token0 holders can exchange their Token0 for Token2.
+2. `SimpleMarket.sol` -> Collector sells ERC20 Token0s representing the Vault, by accepting ERC20 Token1 as payment. No individual cap.
+3. `SimpleMarket2.sol` -> Collector sells ERC20 Token0s representing the Vault, by accepting ERC20 Token1 as payment. Has individual cap.
+4. `SimpleBuyout.sol` -> Anyone can bid for the Vault using ERC20 Token2. Anyone can stake Token0 to prevent the buyout.
 
 
 All the contracts in this repository have been written in Solidity v0.7.5
