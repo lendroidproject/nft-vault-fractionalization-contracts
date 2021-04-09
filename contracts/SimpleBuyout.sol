@@ -99,6 +99,8 @@ contract SimpleBuyout is Ownable, Pacemaker, Pausable {
         require(token0.balanceOf(msg.sender) >= token0Amount, "{placeBid} : insufficient token0 balance");
         require(token0Amount >= token0.totalSupply().mul(5).div(100),
             "{placeBid} : token0Amount should be at least 5% of token0 totalSupply");
+        // check Vault ownership
+        require(vault.vaultOwner() == address(this), "{placeBid} : failed vault-ownership verification");
         // increment bid number and reset veto count
         currentBidId = currentBidId.add(1);
         currentBidToken0Staked = 0;
