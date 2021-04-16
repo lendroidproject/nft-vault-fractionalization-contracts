@@ -56,6 +56,7 @@ contract SimpleMarket is Ownable {
         fundsWallet = fundsWalletAddress;
         marketStart = uint256Values[0];
         totalCap = uint256Values[1];
+        require(token0.balanceOf(address(this)) >= totalCap, "{createMarket}: insufficient token0 balance to meet totalCap");
         token1PerToken0 = uint256Values[2];
     }
 
@@ -66,6 +67,11 @@ contract SimpleMarket is Ownable {
         require(marketStatus == MarketStatus.OPEN, "{closeMarket} : marketStatus is not OPEN");
         // close market
         marketStatus = MarketStatus.CLOSED;
+        // retrieve token0 remaining to owner
+        uint256 token0Remaining = token0.balanceOf(owner());
+        if (token0Remaining > 0) {
+            token0.safeTransfer(owner(), token0Remaining);
+        }
     }
 
     /**
