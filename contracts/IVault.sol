@@ -25,6 +25,8 @@ interface IVault {
 
     function totalAssetSlots() external view returns (uint256);
 
+    function vaultOwner() external view returns (address);
+
     function onERC721Received(address, uint256, bytes memory) external pure returns (bytes4);
 
 }
