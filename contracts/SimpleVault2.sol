@@ -30,7 +30,7 @@ contract SimpleVault2 is IVault, Ownable, ERC721Holder {
     Asset[] public assets;
     uint256 public totalAssets;
     // NFT address that would be the key to unlock the B.20 Vault
-    IERC721 vaultKey;
+    IERC721 public vaultKey;
     // return value for safeTransferFrom function calls of older ERC721 versions
     bytes4 public constant ERC721_RECEIVED_OLD = 0xf0b9e5ba;
 
