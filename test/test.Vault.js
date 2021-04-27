@@ -252,19 +252,19 @@ contract("SimpleVault", (accounts) => {
             assert.equal(false, await this.vault.locked());
         });
 
-        it("[revert] - when empty assetIds", async () => {
+        it("[revert] - when empty assetIndices", async () => {
             await expectRevert(
                 this.vault.safeTransferAsset(
                     [], { from: owner, gas: 2000000 }),
-                "{safeTransferAsset} : assetIds cannot be empty"
+                "{safeTransferAsset} : assetIndices cannot be empty"
             );
         });
 
-        it("[revert] - when invalid assetIds", async () => {
+        it("[revert] - when invalid assetIndices", async () => {
             await expectRevert(
                 this.vault.safeTransferAsset(
                     [1], { from: owner, gas: 2000000 }),
-                "{safeTransferAsset} : 400, Invalid assetId"
+                "{safeTransferAsset} : 400, Invalid assetIndex"
             );
         });
 
@@ -665,10 +665,10 @@ contract("SimpleVault", (accounts) => {
             );
         });
 
-        it("[revert] - when invalid assetId", async () => {
+        it("[revert] - when invalid assetIndex", async () => {
             await expectRevert(
                 this.vault.setDecentralandOperator(this.nft1.address, tester1, 2, { from: owner, gas: 2000000 }),
-                "{setDecentralandOperator} : 400, Invalid assetId",
+                "{setDecentralandOperator} : 400, Invalid assetIndex",
             );
         });
 

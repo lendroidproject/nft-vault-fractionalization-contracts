@@ -149,6 +149,11 @@ contract("SimpleMarket", (accounts) => {
         });
 
         it("fails with invalid totalCap", async () => {
+            // owner mints 1.6M Token0 to owner
+            await this.token0.mint(owner, web3.utils.toWei("1600000", "ether"), { from: owner, gas: 1000000 });
+            // owner sends 1.6M Token0 to market
+            await this.token0.transfer(this.market.address, web3.utils.toWei("1600000", "ether"), { from: owner, gas: 1000000 });
+
             await expectRevert(
                 this.market.createMarket(
                     this.token0.address, this.token1.address, this.fundsWallet.address,
@@ -158,6 +163,16 @@ contract("SimpleMarket", (accounts) => {
                         web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether")
                     ], { from: owner, gas: 2000000 }),
                 "{createMarket} : totalCap cannot be zero",
+            );
+            await expectRevert(
+                this.market.createMarket(
+                    this.token0.address, this.token1.address, this.fundsWallet.address,
+                    [
+                        this.marketStart.toNumber(),
+                        web3.utils.toWei("1600001", "ether"),
+                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether")
+                    ], { from: owner, gas: 2000000 }),
+                "{createMarket}: insufficient token0 balance to meet totalCap",
             );
         });
 
@@ -226,11 +241,6 @@ contract("SimpleMarket", (accounts) => {
 
         before(async () => {
             this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
-
-            // owner mints 1.6M Token0 to owner
-            await this.token0.mint(owner, web3.utils.toWei("1600000", "ether"), { from: owner, gas: 1000000 });
-            // owner sends 1.6M Token0 to market
-            await this.token0.transfer(this.market.address, web3.utils.toWei("1600000", "ether"), { from: owner, gas: 1000000 });
         });
 
         after(async () => {

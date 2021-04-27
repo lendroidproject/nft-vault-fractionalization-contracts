@@ -4,6 +4,7 @@ pragma abicoder v2;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721Holder.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
@@ -17,6 +18,7 @@ import "./IVault.sol";
     @dev Audit certificate : Pending
 */
 contract SimpleVault is IVault, Ownable, ERC721Holder {
+    using SafeERC20 for IERC20;
     using SafeMath for uint256;
     using Address for address;
 
@@ -74,22 +76,22 @@ contract SimpleVault is IVault, Ownable, ERC721Holder {
     * @notice Allows owner to transfer NFTs from the vault.
     * Eg, [3, 200, 54]
     */
-    function safeTransferAsset(uint256[] calldata assetIds) external override onlyOwner {
+    function safeTransferAsset(uint256[] calldata assetIndices) external override onlyOwner {
         require(!locked, "{safeTransferAsset} : locked");
-        require(assetIds.length > 0, "{safeTransferAsset} : assetIds cannot be empty");
+        require(assetIndices.length > 0, "{safeTransferAsset} : assetIndices cannot be empty");
         // validate inputs
-        for (uint i = 0; i < assetIds.length; i++) {
-            require(assets.length > assetIds[i], "{safeTransferAsset} : 400, Invalid assetId");
-            require(assets[assetIds[i]].tokenAddress != address(0),
+        for (uint i = 0; i < assetIndices.length; i++) {
+            require(assets.length > assetIndices[i], "{safeTransferAsset} : 400, Invalid assetId");
+            require(assets[assetIndices[i]].tokenAddress != address(0),
                 "{safeTransferAsset} : 404, asset does not exist");
         }
-        for (uint i = 0; i < assetIds.length; i++) {
+        for (uint i = 0; i < assetIndices.length; i++) {
             totalAssets = totalAssets.sub(1);
             // transfer asset to new owner
-            IERC721(assets[assetIds[i]].tokenAddress).safeTransferFrom(address(this),
-                owner(), assets[assetIds[i]].tokenId);
+            IERC721(assets[assetIndices[i]].tokenAddress).safeTransferFrom(address(this),
+                owner(), assets[assetIndices[i]].tokenId);
             // remove asset but preserve array length
-            delete assets[assetIds[i]];
+            delete assets[assetIndices[i]];
         }
     }
 
@@ -100,12 +102,20 @@ contract SimpleVault is IVault, Ownable, ERC721Holder {
         IERC721(tokenAddress).safeTransferFrom(address(this), owner(), tokenId);
     }
 
+    /**
+    * @notice Safety function to handle accidental token transfer to the contract
+    */
+    function escapeHatchERC20(address tokenAddress) external onlyOwner {
+        IERC20 token = IERC20(tokenAddress);
+        token.safeTransfer(owner(), token.balanceOf(address(this)));
+    }
+
     function setDecentralandOperator(address registryAddress, address operatorAddress,
-        uint256 assetId) external override onlyOwner {
+        uint256 assetIndex) external override onlyOwner {
         require(registryAddress != address(0), "{setDecentralandOperator} : invalid registryAddress");
         require(operatorAddress != address(0), "{setDecentralandOperator} : invalid operatorAddress");
-        require(assets.length > assetId, "{setDecentralandOperator} : 400, Invalid assetId");
-        IDecentralandLandRegistry(registryAddress).setUpdateOperator(assetId, operatorAddress);
+        require(assets.length > assetIndex, "{setDecentralandOperator} : 400, Invalid assetIndex");
+        IDecentralandLandRegistry(registryAddress).setUpdateOperator(assetIndex, operatorAddress);
     }
 
     function totalAssetSlots() external view override returns (uint256) {
@@ -126,7 +136,7 @@ contract SimpleVault is IVault, Ownable, ERC721Holder {
     }
 
     function toggleLock(bool value) internal {
-        require(locked == !value, "{toggleLock} : incorrect value");
+        require(locked != value, "{toggleLock} : incorrect value");
         locked = value;
     }
 }
