@@ -320,7 +320,7 @@ contract("SimpleMarket2", (accounts) => {
             expect(await this.token0.balanceOf(tester1)).to.be.bignumber.equal(web3.utils.toWei("2775", "ether"));
             // fails when tester2 tries to pay 150K Token1 to app
             await expectRevert(
-                this.market.pay(web3.utils.toWei("2", "ether"), { from: tester1, gas: 2500000 }),
+                this.market.pay(web3.utils.toWei((INDIVIDUAL_CAP + 1).toString(), "ether"), { from: tester1, gas: 2500000 }),
                 "{pay} : token1Amount cannot exceed individualCap",
             );
         });

@@ -38,6 +38,11 @@ abstract contract SimpleMarketBase is Ownable {
 
     event PaymentReceived(address buyer, uint256 amount);
 
+    // solhint-disable-next-line func-visibility
+    constructor() {
+        marketStatus = MarketStatus.CREATED;
+    }
+
     /**
     * @notice Safety function to handle accidental token transfer to the contract
     */
@@ -91,6 +96,7 @@ abstract contract SimpleMarketBase is Ownable {
         fundsWallet = fundsWalletAddress;
         marketStart = uint256Values[0];
         totalCap = uint256Values[1];
+        require(token0.balanceOf(address(this)) >= totalCap, "{createMarket}: insufficient token0 balance to meet totalCap");
         token1PerToken0 = uint256Values[2];
     }
 

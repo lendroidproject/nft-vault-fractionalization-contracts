@@ -81,7 +81,7 @@ contract SimpleVault is IVault, Ownable, ERC721Holder {
         require(assetIndices.length > 0, "{safeTransferAsset} : assetIndices cannot be empty");
         // validate inputs
         for (uint i = 0; i < assetIndices.length; i++) {
-            require(assets.length > assetIndices[i], "{safeTransferAsset} : 400, Invalid assetId");
+            require(assets.length > assetIndices[i], "{safeTransferAsset} : 400, Invalid assetIndex");
             require(assets[assetIndices[i]].tokenAddress != address(0),
                 "{safeTransferAsset} : 404, asset does not exist");
         }

@@ -25,6 +25,7 @@ contract SimpleMarket2 is SimpleMarketBase {
     function createMarket(address token0Address, address token1Address,
         address fundsWalletAddress,
         uint256[4] memory uint256Values) external onlyOwner {
+        require(uint256Values[3] > 0, "{createMarket} : individualCap cannot be zero");
         _createMarket(token0Address, token1Address, fundsWalletAddress,
             [uint256Values[0], uint256Values[1], uint256Values[2]]);
         individualCap = uint256Values[3];
