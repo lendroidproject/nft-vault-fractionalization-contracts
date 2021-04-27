@@ -2,6 +2,9 @@ const MockPacemaker = artifacts.require("MockPacemaker");
 const SimpleWallet = artifacts.require("MockSimpleWallet");
 
 const Vault = artifacts.require("SimpleVault");
+const Vault2 = artifacts.require("SimpleVault2");
+
+const NFTB20 = artifacts.require("MockNFTB20");
 
 const Token0 = artifacts.require("MockToken0");
 const Token1 = artifacts.require("MockToken1");
@@ -33,5 +36,7 @@ module.exports = function (deployer) {
             BID_INTERVAL_IN_EPOCHS,
             BUYOUT_STOP_THRESHOLD_PERCENTAGE
         ]);
+        await deployer.deploy(NFTB20);
+        await deployer.deploy(Vault2, NFTB20.address);
     });
 };
