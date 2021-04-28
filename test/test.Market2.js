@@ -20,6 +20,7 @@ contract("SimpleMarket2", (accounts) => {
     const tester1 = accounts[1];
     const tester2 = accounts[2];
     const tester3 = accounts[3];
+    const tester4 = accounts[4];
 
     this.currentTime = null;
 
@@ -37,11 +38,41 @@ contract("SimpleMarket2", (accounts) => {
         this.token0 = await Token0.deployed();
         this.token1 = await Token1.deployed();
         this.fundsWallet = await SimpleWallet.deployed();
+        this.whitelistAddresses = [
+            tester1,
+            tester2,
+            tester3,
+        ];
     });
 
     beforeEach(async () => {
         this.currentTime = await time.latest();
         this.marketStart = this.currentTime.add(new BN(1209600));// 2 weeks from currentTime
+    });
+
+    describe("whitelistAddresses", () => {
+
+        it("[require] - caller needs to be the owner", async () => {
+            await expectRevert(
+                this.market.whitelistAddresses(this.whitelistAddresses, { from: tester1, gas: 2000000 }),
+                "Ownable: caller is not the owner",
+            );
+        });
+
+        it("[fail] - invalid params", async () => {
+            await expectRevert(
+                this.market.whitelistAddresses(new Array(101).fill(constants.ZERO_ADDRESS), { from: owner, gas: 2000000 }),
+                "{whitelistAddresses} : invalid params",
+            );
+            await expectRevert(
+                this.market.whitelistAddresses([constants.ZERO_ADDRESS], { from: owner, gas: 2000000 }),
+                "{whitelistAddresses} : invalid params",
+            );
+        });
+
+        it("[success] - valid inputs", async () => {
+            await this.market.whitelistAddresses(this.whitelistAddresses, { from: owner, gas: 2000000 });
+        });
     });
 
     describe("createMarket", () => {
@@ -158,6 +189,11 @@ contract("SimpleMarket2", (accounts) => {
         });
 
         it("fails with invalid totalCap", async () => {
+            // owner mints 1.6M Token0 to owner
+            await this.token0.mint(owner, web3.utils.toWei("1600000", "ether"), { from: owner, gas: 1000000 });
+            // owner sends 1.6M Token0 to market
+            await this.token0.transfer(this.market.address, web3.utils.toWei("1600000", "ether"), { from: owner, gas: 1000000 });
+
             await expectRevert(
                 this.market.createMarket(
                     this.token0.address, this.token1.address, this.fundsWallet.address,
@@ -168,6 +204,17 @@ contract("SimpleMarket2", (accounts) => {
                         web3.utils.toWei(INDIVIDUAL_CAP.toString(), "ether")
                     ], { from: owner, gas: 2000000 }),
                 "{createMarket} : totalCap cannot be zero",
+            );
+            await expectRevert(
+                this.market.createMarket(
+                    this.token0.address, this.token1.address, this.fundsWallet.address,
+                    [
+                        this.marketStart.toNumber(),
+                        web3.utils.toWei("1600001", "ether"),
+                        web3.utils.toWei(TOKEN_0_PRICE_IN_TOKEN_1.toString(), "ether"),
+                        web3.utils.toWei(INDIVIDUAL_CAP.toString(), "ether")
+                    ], { from: owner, gas: 2000000 }),
+                "{createMarket}: insufficient token0 balance to meet totalCap",
             );
         });
 
@@ -253,11 +300,6 @@ contract("SimpleMarket2", (accounts) => {
 
         before(async () => {
             this.snapshotIds.push((await timeMachine.takeSnapshot())["result"]);
-
-            // owner mints 1.6M Token0 to owner
-            await this.token0.mint(owner, web3.utils.toWei("1000000", "ether"), { from: owner, gas: 1000000 });
-            // owner sends 1.6M Token0 to market
-            await this.token0.transfer(this.market.address, web3.utils.toWei("1000000", "ether"), { from: owner, gas: 1000000 });
         });
 
         after(async () => {
@@ -268,6 +310,13 @@ contract("SimpleMarket2", (accounts) => {
             await expectRevert(
                 this.market.pay(web3.utils.toWei("0", "ether"), { from: tester1, gas: 2000000 }),
                 "{pay} : token1Amount cannot be zero",
+            );
+        });
+
+        it("fails when user not whitelisted", async () => {
+            await expectRevert(
+                this.market.pay(web3.utils.toWei("360", "ether"), { from: tester4, gas: 2000000 }),
+                "{pay} : user is not whitelisted",
             );
         });
 
@@ -309,7 +358,7 @@ contract("SimpleMarket2", (accounts) => {
             expect(await this.token0.balanceOf(tester1)).to.be.bignumber.equal(web3.utils.toWei("2775", "ether"));
             // fails when tester2 tries to pay 150K Token1 to app
             await expectRevert(
-                this.market.pay(web3.utils.toWei("2", "ether"), { from: tester1, gas: 2500000 }),
+                this.market.pay(web3.utils.toWei((INDIVIDUAL_CAP + 1).toString(), "ether"), { from: tester1, gas: 2500000 }),
                 "{pay} : token1Amount cannot exceed individualCap",
             );
         });
