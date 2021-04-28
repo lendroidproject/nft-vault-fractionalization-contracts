@@ -115,7 +115,7 @@ contract SimpleVault is IVault, Ownable, ERC721Holder {
         require(registryAddress != address(0), "{setDecentralandOperator} : invalid registryAddress");
         require(operatorAddress != address(0), "{setDecentralandOperator} : invalid operatorAddress");
         require(assets.length > assetIndex, "{setDecentralandOperator} : 400, Invalid assetIndex");
-        IDecentralandLandRegistry(registryAddress).setUpdateOperator(assetIndex, operatorAddress);
+        IDecentralandLandRegistry(registryAddress).setUpdateOperator(assets[assetIndex].tokenId, operatorAddress);
     }
 
     function totalAssetSlots() external view override returns (uint256) {

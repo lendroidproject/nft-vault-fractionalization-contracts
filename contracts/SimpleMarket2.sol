@@ -22,6 +22,8 @@ contract SimpleMarket2 is SimpleMarketBase {
 
     uint256 public individualCap;// individual payment cap
 
+    mapping (address => bool) public whitelist;
+
     function createMarket(address token0Address, address token1Address,
         address fundsWalletAddress,
         uint256[4] memory uint256Values) external onlyOwner {
@@ -35,6 +37,7 @@ contract SimpleMarket2 is SimpleMarketBase {
     * @notice Records payment per account.
     */
     function pay(uint256 token1Amount) external {
+        require(whitelist[msg.sender], "{pay} : user is not whitelisted");
         require(marketStatus == MarketStatus.OPEN, "{pay} : marketStatus is not OPEN");
         // solhint-disable-next-line not-rely-on-time
         require(block.timestamp >= marketStart, "{pay} : market has not yet started");
@@ -44,5 +47,14 @@ contract SimpleMarket2 is SimpleMarketBase {
         require(payments[msg.sender].add(token1Amount) <= individualCap,
             "{pay} : token1Amount cannot exceed individualCap");
         _pay(msg.sender, token1Amount);
+    }
+
+    function whitelistAddresses(address[] calldata addrs) external onlyOwner returns(bool) {
+        require(addrs.length <= 100, "{whitelistAddresses} : invalid params");
+        for (uint i = 0; i < addrs.length; i++) {
+            require(addrs[i] != address(0), "{whitelistAddresses} : invalid params");
+            whitelist[addrs[i]] = true;
+        }
+        return true;
     }
 }
