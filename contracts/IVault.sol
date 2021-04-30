@@ -7,6 +7,7 @@ pragma abicoder v2;
  * @dev Required interface of a Vault compliant contract.
  */
 interface IVault {
+
     function lockVault() external;
 
     function unlockVault() external;
