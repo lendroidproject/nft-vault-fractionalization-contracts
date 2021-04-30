@@ -7,6 +7,7 @@ pragma abicoder v2;
  * @dev Required interface of a Vault compliant contract.
  */
 interface IVault {
+
     function lockVault() external;
 
     function unlockVault() external;
@@ -24,6 +25,8 @@ interface IVault {
     function transferOwnership(address newOwner) external;
 
     function totalAssetSlots() external view returns (uint256);
+
+    function vaultOwner() external view returns (address);
 
     function onERC721Received(address, uint256, bytes memory) external pure returns (bytes4);
 
