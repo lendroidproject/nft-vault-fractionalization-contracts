@@ -1,7 +1,7 @@
-# b20-contracts
-Smart contracts for the B.20 project
+# NFT-vault fractionalization package
+This package comprises the following tools.
 
-## Framework
+## Smart contracts
 This branch consists of (simplified versions of) 4 main smart contracts:
 
 1. `SimpleVault.sol` -> Collector locks their NFTs. Vault ownership is transferred to successful bidder from the Buyout process.
@@ -12,9 +12,16 @@ This branch consists of (simplified versions of) 4 main smart contracts:
 
 All the contracts in this repository have been written in Solidity v0.7.5
 
-Please use Git commits according to this article: https://chris.beams.io/posts/git-commit
+- [Github](https://github.com/lendroidproject/nft-vault-fractionalization-contracts)
+- [Audit report](https://github.com/lendroidproject/nft-vault-fractionalization-contracts/blob/master/audit-report.pdf)
 
-## Installation and setup
+## UI template
+A base template of the user interface.
+- [Github](https://github.com/lendroidproject/nft-vault-fractionalization-ui)
+
+## How to use this repo
+
+### Installation and setup
 * Clone this repository
 
   `git clone <repo>`
@@ -28,13 +35,13 @@ Please use Git commits according to this article: https://chris.beams.io/posts/g
   `npm install`
 
 
-## Test and development
+### Test and development
 
 * Open new terminal, run ganache
 
   `ganache-cli`
 
-### Setup Truffle virtual environment
+#### Setup Truffle virtual environment
 
 * Open new terminal
 
